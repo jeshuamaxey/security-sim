@@ -4,6 +4,7 @@ import { Game as MainGame } from './scenes/Game';
 import { MainMenu } from './scenes/MainMenu';
 import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
+import { PASSENGER } from './passenger/constants';
 
 export const SIZE = {
   WIDTH: 1024,
@@ -21,7 +22,7 @@ const config: Phaser.Types.Core.GameConfig = {
   physics: {
     default: 'arcade',
     arcade: {
-      debug: false
+      debug: true
     }
   },
   scene: [
@@ -33,34 +34,34 @@ const config: Phaser.Types.Core.GameConfig = {
   ]
 };
 
+const basePassenger = {
+  width: PASSENGER.WIDTH,
+  height: PASSENGER.HEIGHT,
+  offsetX: 0,
+  offsetY: 0,
+  scale: PASSENGER.SCALE
+}
+
 export const passengers = [
   {
     name: 'adam',
     sprite: 'adam',
-    width: 32,
-    height: 32,
-    scale: 2
+    ...basePassenger
   },
   {
     name: 'alex',
     sprite: 'alex',
-    width: 32,
-    height: 32,
-    scale: 2
+    ...basePassenger
   },
   {
     name: 'bob',
     sprite: 'bob',
-    width: 32,
-    height: 32,
-    scale: 2
+    ...basePassenger
   },
   {
     name: 'amelia',
     sprite: 'amelia',
-    width: 32,
-    height: 32,
-    scale: 2
+    ...basePassenger
   }
 ]
 

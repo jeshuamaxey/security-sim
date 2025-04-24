@@ -1,4 +1,8 @@
 export const PASSENGER = {
   SPEED: 100,
-  SCALE: 2
+  SCALE: 2,
+  HEIGHT: 32,
+  WIDTH: 32,
+
+  SPAWN_RADIUS: 100,
 }
