@@ -42,6 +42,8 @@ export class Preloader extends Scene
         this.load.spritesheet('bob', 'spritesheets/Bob_16x16.png', { frameWidth: 16, frameHeight: 32,  });
         this.load.spritesheet('amelia', 'spritesheets/Amelia_16x16.png', { frameWidth: 16, frameHeight: 32,  });
 
+        this.load.tilemapTiledJSON('airport', 'tilemaps/airport.tmj');
+        this.load.image('airport', 'tilemaps/airport.png');
       }
       create ()
       {

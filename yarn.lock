@@ -203,6 +203,13 @@
   dependencies:
     csstype "^3.0.2"
 
+astar-typescript@^1.2.7:
+  version "1.2.7"
+  resolved "https://registry.yarnpkg.com/astar-typescript/-/astar-typescript-1.2.7.tgz#bac3e8fa4b016c4ee55b3fb6c427b5cd7f1eea1c"
+  integrity sha512-1M9d8Mpu75oalRgdMi4QGdsEg1HMjvZXO4x31LIYR1uSyd8RKjfdQSYXQts2Nzg6PzxtGQvEYrikm+UjCATGWQ==
+  dependencies:
+    lodash "4.17.21"
+
 busboy@1.6.0:
   version "1.6.0"
   resolved "https://registry.yarnpkg.com/busboy/-/busboy-1.6.0.tgz#966ea36a9502e43cdb9146962523b92f531f6893"
@@ -267,6 +274,11 @@ is-arrayish@^0.3.1:
   version "0.3.2"
   resolved "https://registry.yarnpkg.com/is-arrayish/-/is-arrayish-0.3.2.tgz#4574a2ae56f7ab206896fb431eaeed066fdf8f03"
   integrity sha512-eVRqCvVlZbuw3GrM63ovNSNAeA1K16kaR/LRY/92w0zxQ5/1YzwblUX652i4Xs9RwAGjW9d9y6X88t8OaAJfWQ==
+
+lodash@4.17.21:
+  version "4.17.21"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
+  integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==
 
 nanoid@^3.3.6:
   version "3.3.11"
