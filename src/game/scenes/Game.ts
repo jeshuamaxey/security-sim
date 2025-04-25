@@ -3,6 +3,7 @@ import { Scene } from 'phaser';
 import { passengers, SIZE } from '../main';
 import Passenger, { PassengerTexture } from '../passenger/Passenger';
 import { PathFinder } from '../utils/tilemaps';
+import { PASSENGER } from '../passenger/constants';
 
 export class Game extends Scene
 {
@@ -12,6 +13,8 @@ export class Game extends Scene
     targetText: Phaser.GameObjects.Text;
     passengers: Phaser.GameObjects.Group;
     spawnButton: Phaser.GameObjects.Text;
+    spawnButtonDebug: Phaser.GameObjects.Text;
+    passengerListText: Phaser.GameObjects.Text;
 
     constructor ()
     {
@@ -21,7 +24,6 @@ export class Game extends Scene
     create ()
     {
         this.camera = this.cameras.main;
-        // this.background = this.add.image(512, 384, 'background');
 
         const map = this.make.tilemap({ key: 'airport' });
 
@@ -35,27 +37,41 @@ export class Game extends Scene
 
         barriersLayer.setCollisionByProperty({ collides: true });
 
-        // const debugGraphics = this.add.graphics().setAlpha(0.75);
-        // barriersLayer.renderDebug(debugGraphics, {
-        //   tileColor: null,
-        //   collidingTileColor: new Phaser.Display.Color(255, 0, 0, 255),
-        // });
-
         this.passengers = this.add.group({
-          classType: Phaser.GameObjects.Sprite,
+          classType: Passenger,
           maxSize: 100,
           runChildUpdate: true
         });
 
-        this.targetText = this.add.text(500, 400, 'TARGET');
+        this.targetText = this.add.text(500, 400, 'TARGET', {
+          fontSize: 18,
+          color: '#000000'
+        });
 
-        this.spawnButton = this.add.text(0, 0, 'SPAWN');
+        this.spawnButton = this.add.text(0, 0, 'SPAWN', {
+          fontSize: 18,
+          color: '#000000'
+        });
         this.spawnButton.setInteractive();
         this.spawnButton.on('pointerdown', () => {
           this.spawnPassenger(pathFinder);
         });
 
-        this.spawnPassenger(pathFinder);
+        this.spawnButtonDebug = this.add.text(0, 20, 'SPAWN DEBUG', {
+          fontSize: 18,
+          color: '#000000'
+        });
+        this.spawnButtonDebug.setInteractive();
+        this.spawnButtonDebug.on('pointerdown', () => {
+          this.spawnPassenger(pathFinder, true);
+        });
+
+        this.passengerListText = this.add.text(0, 40, 'Passengers:', {
+          fontSize: 18,
+          color: '#000000'
+        });
+
+        // this.spawnPassenger(pathFinder, true);
         
         // spawn passengers every 3 seconds
         // this.time.addEvent({
@@ -70,7 +86,7 @@ export class Game extends Scene
         EventBus.emit('current-scene-ready', this);
       }
       
-      spawnPassenger (pathFinder: PathFinder): Passenger
+      spawnPassenger (pathFinder: PathFinder, debug: boolean = false): Passenger
       {      
         const passengerData = passengers[Math.floor(Math.random() * passengers.length)];
         
@@ -83,25 +99,33 @@ export class Game extends Scene
         const newPassenger = new Passenger(this, spawnX, spawnY, passengerData.sprite, {
           name: passengerData.name as PassengerTexture,
           destination: this.targetText.getCenter(),
-          pathFinder: pathFinder
+          pathFinder: pathFinder,
+          debug: debug ? {
+            showPath: true,
+            showPathTraced: true,
+            debugLog: true
+          } : undefined
         });
   
         // @ts-ignore
-        this.physics.add.collider(newPassenger, this.passengers, (passenger: Passenger, other: Passenger) => {
-          console.log('CALLBACK: Collided with passenger', passenger.name, other.name);
-          passenger.onHitOtherPassenger(other.body);
-          other.onHitOtherPassenger(passenger.body);
+        const collider = this.physics.add.overlap(newPassenger, this.passengers, (passenger: Passenger, other: Passenger) => {
+          passenger.onHitOtherPassenger(other);
+          other.onHitOtherPassenger(passenger);
+
+          collider.active = false;
+
+          this.time.delayedCall(PASSENGER.WAIT_AFTER_COLLISION_MS, () => {
+            collider.active = true;
+          });
         });
-  
-        // const barriers = this.children.getByName('barriers');
-        // if(barriers) {
-        //   console.log('barriers', barriers);
-        //   // @ts-ignore
-        //   this.physics.add.collider(newPassenger, barriers, (passenger: Passenger, tile: Phaser.Tilemaps.Tile) => {
-        //     // console.log('CALLBACK: Collided with barrier', passenger.name, tile);
-        //     // passenger.onHitBarrier(tile);
-        //   });
-        // }
+
+        //detect when passenger is clicked on
+        newPassenger.setInteractive();
+        newPassenger.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+          console.log('pointerdown', pointer);
+
+          newPassenger.markForDestroy();
+        });
         
         this.passengers.add(newPassenger);
   
@@ -109,6 +133,13 @@ export class Game extends Scene
       }
 
     update (time: number, delta: number)
-    {}
+    {
+      const passengerList = this.passengers.getChildren().map((passenger, index) => {
+        // check emoji or walking emoji
+        const emoji = (passenger as Passenger).atDestination ? '✅' : '🚶‍♂️';
+        return `${index + 1}. ${passenger.name} ${emoji}`;
+      }).join('\n');
+      this.passengerListText.setText(`Passengers:\n${passengerList}`);
+    }
     
 }

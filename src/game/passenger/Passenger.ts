@@ -11,6 +11,7 @@ type Vector2Like = Phaser.Types.Math.Vector2Like
 type PassengerDebugConfig = {
   showPath?: boolean;
   showPathTraced?: boolean;
+  debugLog?: boolean;
 }
 
 type PassengerConfig = {
@@ -28,42 +29,59 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   private destination?: Vector2Like;
   private destinationRadius: number;
   public body: Phaser.Physics.Arcade.Body;
-  public impeded: boolean;
+
   public pathFinder: PathFinder;
   public pathInTileCoords?: number[][];
   public pathInWorldCoords?: Vector2Like[];
   public movingToDestination: boolean;
   public atDestination: boolean;
+  public currentStepInPath: number;
+
+  public lastPassengerCollidedWith?: Passenger;
+
   public debug?: PassengerDebugConfig;
+  public debugGraphics: Phaser.GameObjects.Graphics;
+
+  private markedForDestroy: boolean;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string, config: PassengerConfig) {
     super(scene, x, y, texture);
 
-    // account for empty space at the top of sprite images
-    this.setOrigin(0.5, 0.8);
-
     scene.add.existing(this);
     scene.physics.world.enable(this);
-
+    
     // PHYSICS
-    this.setPushable(true);
-    this.body.setBounce(0);
-    this.body.debugBodyColor = 0x0000ff;
-    this.body.setCollideWorldBounds(true);
+    // account for empty space at the top of sprite images
+    this.body.setSize(16, 24);
+    this.body.setOffset(0, 8);
+    this.setOrigin(0.5, 0.8);
 
+    // setup physics behaviour
+    this.setPushable(false);
+    this.setImmovable(true);
+    this.body.setBounce(0);
+    this.body.setCollideWorldBounds(true);
+    
+    this.body.debugBodyColor = 0x0000ff;
+    
     // ANIMATIONS
     for(const animation in spriteAnimations) {
       this.anims.create(spriteAnimations[animation as keyof typeof spriteAnimations](scene, texture));
     }
 
     // CONFIG
+    this.debug = config.debug;
+    this.debugGraphics = scene.add.graphics();
     this.speed = PASSENGER.SPEED;
     this.direction = 'none';
     this.name = config.name + Math.round(Math.random()*10000).toString();
     this.destination = config.destination;
     this.destinationRadius = 10;
 
+    this.markedForDestroy = false;
+
     this.pathFinder = config.pathFinder;
+    this.currentStepInPath = 0;
     this.pathInTileCoords = this.pathFinder.findPath(this.getCenter(), this.destination as IPoint);
     this.pathInWorldCoords = this.pathInTileCoords.map(([x, y]) => {
       const xWorld = this.pathFinder.tilemap.tileToWorldX(x);
@@ -109,33 +127,59 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   update(time: number, delta: number) {
     super.update(time, delta);
 
-    if(this.pathInWorldCoords && !this.atDestination && !this.movingToDestination) {
+    if(this.pathInWorldCoords && !this.atDestination && !this.movingToDestination && !this.impeded) {
       this.moveAlongPathWithPhysics(this.pathInWorldCoords, this.speed);
     }
 
     if(this.debug?.showPathTraced) {
-      const graphics = this.scene.add.graphics();
-      graphics.fillStyle(0x0000ff, 1);
-      graphics.fillCircle(this.x, this.y, 4);
+      this.debugGraphics.fillStyle(0x0000ff, 1);
+      this.debugGraphics.fillCircle(this.x, this.y, 4);
+    }
+
+    if(this.markedForDestroy) {
+      this.destroy();
     }
   }
 
-  onHitOtherPassenger(body: Phaser.Physics.Arcade.Body) {
-    // determine whether the body hit is between this and the destination
-    let isBetween = false;
-    if(this.direction === 'up') {
-      isBetween = body.y < this.body.y;
-    } else if(this.direction === 'down') {
-      isBetween = body.y > this.body.y;
-    } else if(this.direction === 'left') {
-      isBetween = body.x < this.body.x;
-    } else if(this.direction === 'right') {
-      isBetween = body.x > this.body.x;
+  public markForDestroy() {
+    this.markedForDestroy = true;
+  }
+
+  public get impeded() {
+    if(!this.body || this.direction === 'none' || !this.lastPassengerCollidedWith || !this.lastPassengerCollidedWith.body) {
+      return false;
     }
 
-    this.impeded = isBetween;
+    let isBetween = false;
+    if(this.direction === 'up') {
+      isBetween = this.lastPassengerCollidedWith?.body.y < this.body.y;
+    } else if(this.direction === 'down') {
+      isBetween = this.lastPassengerCollidedWith?.body.y > this.body.y;
+    } else if(this.direction === 'left') {
+      isBetween = this.lastPassengerCollidedWith?.body.x < this.body.x;
+    } else if(this.direction === 'right') {
+      isBetween = this.lastPassengerCollidedWith?.body.x > this.body.x;
+    }
+
+    return isBetween;
+  }
+
+  onHitOtherPassenger(other: Passenger) {
+    this.lastPassengerCollidedWith = other;
+
     if(this.impeded) {
-      this.stopWalking();
+      this.pauseMovingAlongPath();
+
+      // wait 1 second and try to move again
+      this.scene.time.addEvent({
+        delay: PASSENGER.WAIT_AFTER_COLLISION_MS,
+        callback: () => {
+          const distanceToOther = Phaser.Math.Distance.Between(this.x, this.y, other.x, other.y);
+          if(this.pathInWorldCoords && distanceToOther > this.body.width) {
+            this.moveAlongPathWithPhysics(this.pathInWorldCoords, this.speed);
+          }
+        }
+      });
     }
   }
 
@@ -147,37 +191,18 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
 
   /**
    * Walk the passenger in the given direction
-   * Controls x/y velocity and animation
    * @param direction - The direction to walk
    */
-  public walk(direction: string) {
+  public startWalkingAnimation(direction: string) {
     if(direction !== 'none') {
       this.play(`${this.texture.key}-walk-${direction}`, true)
     }
-    
-    if(this.body) {
-      console.log('walk()', direction);
-      if(direction === 'left') {  
-        this.body.setVelocityX(-this.speed);
-        this.body.setVelocityY(0);
-
-      } else if(direction === 'right') {
-        this.body.setVelocityX(this.speed);
-        this.body.setVelocityY(0);
-      } else if(direction === 'up') {
-        this.body.setVelocityY(-this.speed);
-        this.body.setVelocityX(0);
-      } else if(direction === 'down') {
-        this.body.setVelocityX(0);
-        this.body.setVelocityY(this.speed);
-      }
-    } else {
-      console.log('No body');
-    }
   }
 
-  public stopWalking() {
-    console.log("stopWalking()")
+  /**
+   * Stop the passenger from walking
+   */
+  public stopWalkingAnimation() {
     const delay = Math.random() * 200;
     this.playAfterDelay(`${this.texture.key}-idle`, delay);
     this.body.setVelocityX(0);
@@ -210,23 +235,26 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     return direction.y > 0 ? 'down' : 'up';
   }
 
+  /**
+   * Move the passenger along the path with physics
+   * @param worldPath - The path to move the passenger along
+   * @param speed - The speed of the passenger
+   */
   moveAlongPathWithPhysics(worldPath: Vector2Like[], speed: number) {
     if (!worldPath.length) return;
 
-    let currentStep = 0;
     let initialDistanceFromWaypoint = 0;
     
     const moveToNextTile = () => {
-      if (currentStep >= worldPath.length) {
+      if (this.currentStepInPath >= worldPath.length) {
         this.body.setVelocity(0);
-        // this.movingToDestination = false;
-        // this.atDestination = true;
+        this.arrivedAtDestination();
         return;
       }
 
       this.movingToDestination = true;
   
-      const target = worldPath[currentStep];
+      const target = worldPath[this.currentStepInPath];
       
       const dx = target.x - this.x;
       const dy = target.y - this.y;
@@ -235,15 +263,13 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       this.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
       
       initialDistanceFromWaypoint = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
-      console.log('moveToNextTile()', {currentStep, cur: { x: this.x, y: this.y }, target, initialDistanceFromWaypoint});
+      this.direction = this.updateDirectionToTarget({ x: this.x, y: this.y }, target, PASSENGER.WAYPOINT_TOLERANCE);
+      this.startWalkingAnimation(this.direction);
 
-      if(initialDistanceFromWaypoint < 4) {
-        console.log('waypoint reached immediately', initialDistanceFromWaypoint, currentStep, worldPath.length);
-        currentStep++;
+      if(initialDistanceFromWaypoint < PASSENGER.WAYPOINT_TOLERANCE) {
+        this.currentStepInPath++;
         return moveToNextTile();
       }
-
-      console.log('waiting for waypoint', initialDistanceFromWaypoint, currentStep);
   
       // Wait until close enough to the target tile
       const checkArrival = this.scene.time.addEvent({
@@ -251,18 +277,14 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
         loop: true,
         callback: () => {
           const currentDistanceToWaypoint = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
-          // console.log({initialDistanceFromWaypoint, dist: currentDistanceToWaypoint});
-          if (currentDistanceToWaypoint < this.displayWidth/2) {
-            console.log('waypoint reached()', currentDistanceToWaypoint, currentStep, worldPath.length);
+
+          if (currentDistanceToWaypoint < PASSENGER.WAYPOINT_TOLERANCE) {
             // Stop current movement
             this.body.setVelocity(0);
             checkArrival.remove();
             
-            // Reset state
-            // this.movingToDestination = false;
-            
             // Move to next waypoint
-            currentStep++;
+            this.currentStepInPath++;
             moveToNextTile();
           }
         }
@@ -270,6 +292,40 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     };
   
     moveToNextTile();
+  }
+
+  pauseMovingAlongPath() {
+    console.log('pauseMovingAlongPath()');
+
+    this.body.setVelocity(0);
+    this.stopWalkingAnimation();
+
+    const checkImpediment = this.scene.time.addEvent({
+      delay: 10,
+      loop: true,
+      callback: () => {
+        if(!this.impeded && this.pathInWorldCoords) {
+          this.moveAlongPathWithPhysics(this.pathInWorldCoords, this.speed);
+          checkImpediment.remove();
+        }
+      }
+    });
+  }
+
+  /**
+   * Stop the passenger from walking and reset the path
+   */
+  arrivedAtDestination() {
+    this.stopWalkingAnimation();
+
+    this.movingToDestination = false;
+    this.atDestination = true;
+    this.pathInWorldCoords = undefined;
+    this.pathInTileCoords = undefined;
+
+    this.scene.time.delayedCall(5000, () => {
+      this.markForDestroy();
+    });
   }
 }
 
