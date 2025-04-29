@@ -15,6 +15,9 @@ export class Game extends Scene
     spawnButton: Phaser.GameObjects.Text;
     spawnButtonDebug: Phaser.GameObjects.Text;
     passengerListText: Phaser.GameObjects.Text;
+    focusPassengerDetails: Phaser.GameObjects.Text;
+
+    focusPassenger: Passenger | null;
 
     constructor ()
     {
@@ -122,9 +125,10 @@ export class Game extends Scene
         //detect when passenger is clicked on
         newPassenger.setInteractive();
         newPassenger.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-          console.log('pointerdown', pointer);
+          this.focusPassenger = newPassenger;
 
-          newPassenger.markForDestroy();
+          newPassenger.debug.debugLog = !newPassenger.debug.debugLog;
+          // newPassenger.markForDestroy();
         });
         
         this.passengers.add(newPassenger);
@@ -137,9 +141,32 @@ export class Game extends Scene
       const passengerList = this.passengers.getChildren().map((passenger, index) => {
         // check emoji or walking emoji
         const emoji = (passenger as Passenger).atDestination ? '✅' : '🚶‍♂️';
-        return `${index + 1}. ${passenger.name} ${emoji}`;
+        const impeded = (passenger as Passenger).impeded ? '🚫' : '';
+        return `${index + 1}. ${passenger.name} ${emoji} ${impeded} ${(passenger as Passenger).currentStepInPath}`;
       }).join('\n');
       this.passengerListText.setText(`Passengers:\n${passengerList}`);
+
+      if(this.focusPassengerDetails) {
+        this.focusPassengerDetails.destroy();
+      }
+
+      if(this.focusPassenger) {
+        this.focusPassengerDetails = this.add.text(SIZE.WIDTH - 500, 0, `
+          Focused Passenger: ${this.focusPassenger.name}
+          Impeded: ${this.focusPassenger.impeded}
+          Current Step In Path: ${this.focusPassenger.currentStepInPath}
+          `, {
+          fontSize: 18,
+          color: '#000000',
+          align: 'right'
+        });
+      } else {
+        this.focusPassengerDetails = this.add.text(SIZE.WIDTH - 500, 0, 'No passenger focused', {
+          fontSize: 18,
+          color: '#000000',
+          align: 'right'
+        });
+      }
     }
     
 }

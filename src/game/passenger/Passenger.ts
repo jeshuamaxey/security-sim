@@ -36,10 +36,12 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   public movingToDestination: boolean;
   public atDestination: boolean;
   public currentStepInPath: number;
+  private checkArrivedAtWaypoint: Phaser.Time.TimerEvent;
 
   public lastPassengerCollidedWith?: Passenger;
+  private lastCollisionTimeout?: Phaser.Time.TimerEvent;
 
-  public debug?: PassengerDebugConfig;
+  public debug: PassengerDebugConfig;
   public debugGraphics: Phaser.GameObjects.Graphics;
 
   private markedForDestroy: boolean;
@@ -70,7 +72,11 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     }
 
     // CONFIG
-    this.debug = config.debug;
+    this.debug = config.debug || {
+      showPath: false,
+      showPathTraced: false,
+      debugLog: false
+    };
     this.debugGraphics = scene.add.graphics();
     this.speed = PASSENGER.SPEED;
     this.direction = 'none';
@@ -96,6 +102,8 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
         y: yWorld + this.pathFinder.tilemap.tileHeight / 2
       };
     });
+
+    this.lastCollisionTimeout = undefined;
 
     // Draw the path
     const graphics = scene.add.graphics();
@@ -141,11 +149,18 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  destroy() {
+    this.checkArrivedAtWaypoint.remove();
+
+    super.destroy();
+  }
+
   public markForDestroy() {
     this.markedForDestroy = true;
   }
 
   public get impeded() {
+    // console.log('impeded getter called', this.name);
     if(!this.body || this.direction === 'none' || !this.lastPassengerCollidedWith || !this.lastPassengerCollidedWith.body) {
       return false;
     }
@@ -167,6 +182,10 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   onHitOtherPassenger(other: Passenger) {
     this.lastPassengerCollidedWith = other;
 
+    if (this.lastCollisionTimeout) {
+      this.lastCollisionTimeout.remove();
+    }
+
     if(this.impeded) {
       this.pauseMovingAlongPath();
 
@@ -176,8 +195,16 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
         callback: () => {
           const distanceToOther = Phaser.Math.Distance.Between(this.x, this.y, other.x, other.y);
           if(this.pathInWorldCoords && distanceToOther > this.body.width) {
-            this.moveAlongPathWithPhysics(this.pathInWorldCoords, this.speed);
+            this.lastPassengerCollidedWith = undefined;  // Clear the collision state
           }
+        }
+      });
+    } else {
+      this.lastCollisionTimeout = this.scene.time.addEvent({
+        delay: 200, // ms, adjust as needed
+        callback: () => {
+          this.lastPassengerCollidedWith = undefined;
+          this.lastCollisionTimeout = undefined;
         }
       });
     }
@@ -241,12 +268,37 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
    * @param speed - The speed of the passenger
    */
   moveAlongPathWithPhysics(worldPath: Vector2Like[], speed: number) {
-    if (!worldPath.length) return;
+    if(this.debug?.debugLog) {
+      console.log('moveAlongPathWithPhysics()', this.currentStepInPath, this.name);
+    }
+
+    if (!worldPath.length) {
+      console.warn('no path to move along');
+      return;
+    }
 
     let initialDistanceFromWaypoint = 0;
     
     const moveToNextTile = () => {
+      if(this.debug?.debugLog) console.log('moveToNextTile', this.name, this.currentStepInPath, worldPath.length);
+
+      if (this.impeded) {
+        this.pauseMovingAlongPath();
+        return;
+      }
+
+      // Safety check to prevent invalid step counts
+      this.currentStepInPath = Math.min(this.currentStepInPath, worldPath.length);
+
       if (this.currentStepInPath >= worldPath.length) {
+        if(this.debug?.debugLog) {
+          console.log('arrivedAtDestination()', {
+            currentStepInPath: this.currentStepInPath,
+            worldPathLength: worldPath.length,
+            name: this.name
+          });
+        }
+
         this.body.setVelocity(0);
         this.arrivedAtDestination();
         return;
@@ -266,22 +318,40 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       this.direction = this.updateDirectionToTarget({ x: this.x, y: this.y }, target, PASSENGER.WAYPOINT_TOLERANCE);
       this.startWalkingAnimation(this.direction);
 
+      // Restore immediate distance check for initial position
       if(initialDistanceFromWaypoint < PASSENGER.WAYPOINT_TOLERANCE) {
+        if(this.debug?.debugLog) {
+          console.log('immediatelyArrivedAtWaypoint :: ', this.currentStepInPath, this.name);
+        }
+
         this.currentStepInPath++;
-        return moveToNextTile();
+        if (!this.impeded) {
+          moveToNextTile();
+          return;  // Important: return here to prevent setting up the timer
+        }
       }
-  
+
       // Wait until close enough to the target tile
-      const checkArrival = this.scene.time.addEvent({
+      this.checkArrivedAtWaypoint = this.scene.time.addEvent({
         delay: 10,
         loop: true,
         callback: () => {
+          if (this.impeded) {
+            this.checkArrivedAtWaypoint.remove();
+            this.pauseMovingAlongPath();
+            return;
+          }
+
           const currentDistanceToWaypoint = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
 
           if (currentDistanceToWaypoint < PASSENGER.WAYPOINT_TOLERANCE) {
+            if(this.debug?.debugLog) {
+              console.log('arrivedAtWaypoint :: ', this.currentStepInPath, this.name, this.impeded);
+            }
+
             // Stop current movement
             this.body.setVelocity(0);
-            checkArrival.remove();
+            this.checkArrivedAtWaypoint.remove();
             
             // Move to next waypoint
             this.currentStepInPath++;
@@ -295,18 +365,28 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   }
 
   pauseMovingAlongPath() {
-    console.log('pauseMovingAlongPath()');
-
     this.body.setVelocity(0);
     this.stopWalkingAnimation();
+    if (this.checkArrivedAtWaypoint) {
+      this.checkArrivedAtWaypoint.remove();
+    }
+    
+    // Important: Set this to false so the update() method can trigger movement again
+    this.movingToDestination = false;
 
     const checkImpediment = this.scene.time.addEvent({
       delay: 10,
       loop: true,
       callback: () => {
         if(!this.impeded && this.pathInWorldCoords) {
-          this.moveAlongPathWithPhysics(this.pathInWorldCoords, this.speed);
+          // Don't start a new movement if we've somehow exceeded our path
+          if (this.currentStepInPath >= this.pathInWorldCoords.length) {
+            this.arrivedAtDestination();  // Call arrivedAtDestination instead of resetting
+            checkImpediment.remove();
+            return;
+          }
           checkImpediment.remove();
+          // The update() method will handle restarting movement
         }
       }
     });
@@ -316,7 +396,10 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
    * Stop the passenger from walking and reset the path
    */
   arrivedAtDestination() {
+    console.log('arrivedAtDestination', this.name);
     this.stopWalkingAnimation();
+
+    this.checkArrivedAtWaypoint.remove();
 
     this.movingToDestination = false;
     this.atDestination = true;
