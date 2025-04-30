@@ -41,9 +41,11 @@ export class PathFinder {
       throw new Error('Invalid start or end tile coordinates');
     }
 
-    return this.aStar.findPath(
+    const path = this.aStar.findPath(
       { x: startTileX, y: startTileY },
       { x: endTileX, y: endTileY }
     );
+
+    return path;
   }
 }

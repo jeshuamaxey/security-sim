@@ -1,16 +1,20 @@
 import { EventBus } from '../EventBus';
 import { Scene } from 'phaser';
 import { passengers, SIZE } from '../main';
-import Passenger, { PassengerTexture } from '../passenger/Passenger';
+import Passenger, { PassengerTask, PassengerTexture } from '../passenger/Passenger';
 import { PathFinder } from '../utils/tilemaps';
 import { PASSENGER } from '../passenger/constants';
+
+type Job = {
+  type: 'move';
+  destination: {x: number, y: number};
+}
 
 export class Game extends Scene
 {
     camera: Phaser.Cameras.Scene2D.Camera;
     background: Phaser.GameObjects.Image;
     gameText: Phaser.GameObjects.Text;
-    targetText: Phaser.GameObjects.Text;
     passengers: Phaser.GameObjects.Group;
     spawnButton: Phaser.GameObjects.Text;
     spawnButtonDebug: Phaser.GameObjects.Text;
@@ -18,6 +22,8 @@ export class Game extends Scene
     focusPassengerDetails: Phaser.GameObjects.Text;
 
     focusPassenger: Passenger | null;
+
+    passengerTasks: PassengerTask[];
 
     constructor ()
     {
@@ -46,9 +52,16 @@ export class Game extends Scene
           runChildUpdate: true
         });
 
-        this.targetText = this.add.text(500, 400, 'TARGET', {
-          fontSize: 18,
-          color: '#000000'
+        const targets = [
+          {x: 500, y: 400},
+          {x: 300, y: 100},
+        ];
+
+        targets.forEach((target, index) => {
+          this.add.text(target.x, target.y, `TARGET ${index + 1}`, {
+            fontSize: 18,
+            color: '#000000'
+          });
         });
 
         this.spawnButton = this.add.text(0, 0, 'SPAWN', {
@@ -73,6 +86,21 @@ export class Game extends Scene
           fontSize: 18,
           color: '#000000'
         });
+
+        this.passengerTasks = [
+          {
+            type: 'move',
+            destination: targets[0],
+            name: 'move 1',
+            inProgress: false
+          },
+          {
+            type: 'move',
+            destination: targets[1],
+            name: 'move 2',
+            inProgress: false
+          }
+        ];
 
         // this.spawnPassenger(pathFinder, true);
         
@@ -101,7 +129,7 @@ export class Game extends Scene
         
         const newPassenger = new Passenger(this, spawnX, spawnY, passengerData.sprite, {
           name: passengerData.name as PassengerTexture,
-          destination: this.targetText.getCenter(),
+          tasks: this.passengerTasks,
           pathFinder: pathFinder,
           debug: debug ? {
             showPath: true,
@@ -138,11 +166,11 @@ export class Game extends Scene
 
     update (time: number, delta: number)
     {
-      const passengerList = this.passengers.getChildren().map((passenger, index) => {
+      const passengerList = (this.passengers.getChildren() as Passenger[]).map((passenger, index) => {
         // check emoji or walking emoji
-        const emoji = (passenger as Passenger).atDestination ? '✅' : '🚶‍♂️';
+        // const emoji = (passenger as Passenger).atDestination ? '✅' : '🚶‍♂️';
         const impeded = (passenger as Passenger).impeded ? '🚫' : '';
-        return `${index + 1}. ${passenger.name} ${emoji} ${impeded} ${(passenger as Passenger).currentStepInPath}`;
+        return `${index + 1}. ${passenger.name} ${passenger.currentTaskIndex} ${impeded} ${(passenger as Passenger).currentStepInPath}`;
       }).join('\n');
       this.passengerListText.setText(`Passengers:\n${passengerList}`);
 
