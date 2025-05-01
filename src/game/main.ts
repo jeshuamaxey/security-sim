@@ -5,7 +5,7 @@ import { MainMenu } from './scenes/MainMenu';
 import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
 import { PASSENGER } from './passenger/constants';
-
+import { GAME_CONFIG } from './config';
 export const SIZE = {
   WIDTH: 1024,
   HEIGHT: 768,
@@ -17,7 +17,12 @@ const config: Phaser.Types.Core.GameConfig = {
   type: AUTO,
   width: SIZE.WIDTH,
   height: SIZE.HEIGHT,
-  parent: 'game-container',
+  scale: {
+    parent: 'game-container',
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    zoom: 1
+  },
   backgroundColor: '#028af8',
   physics: {
     default: 'arcade',
@@ -39,7 +44,7 @@ const basePassenger = {
   height: PASSENGER.HEIGHT,
   offsetX: 0,
   offsetY: 0,
-  scale: PASSENGER.SCALE
+  scale: GAME_CONFIG.SCALE
 }
 
 export const passengers = [

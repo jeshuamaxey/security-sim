@@ -1,5 +1,5 @@
 import { Scene } from 'phaser';
-
+import { GAME_CONFIG } from '../config';
 export class Preloader extends Scene
 {
     constructor ()
@@ -32,9 +32,7 @@ export class Preloader extends Scene
       {
         //  Load the assets for the game - Replace with your own assets
         this.load.setPath('assets');
-        
-        this.load.image('agent', 'agent.png');
-        this.load.image('body-scanner', 'body-scanner.png');
+
         this.load.image('logo', 'logo.png');
 
         this.load.spritesheet('adam', 'spritesheets/Adam_16x16.png', { frameWidth: 16, frameHeight: 32,  });
@@ -42,8 +40,8 @@ export class Preloader extends Scene
         this.load.spritesheet('bob', 'spritesheets/Bob_16x16.png', { frameWidth: 16, frameHeight: 32,  });
         this.load.spritesheet('amelia', 'spritesheets/Amelia_16x16.png', { frameWidth: 16, frameHeight: 32,  });
 
-        this.load.tilemapTiledJSON('airport', 'tilemaps/airport.tmj');
-        this.load.image('airport', 'tilemaps/airport.png');
+        this.load.tilemapTiledJSON(GAME_CONFIG.TILEMAP_KEY, GAME_CONFIG.TILEMAP_PATH);
+        this.load.image(GAME_CONFIG.TILESET_IMAGE_KEY, GAME_CONFIG.TILESET_PATH);
       }
       create ()
       {

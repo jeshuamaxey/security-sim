@@ -2,13 +2,10 @@ import { EventBus } from '../EventBus';
 import { Scene } from 'phaser';
 import { passengers, SIZE } from '../main';
 import Passenger, { PassengerTask, PassengerTexture } from '../passenger/Passenger';
-import { PathFinder } from '../utils/tilemaps';
+import { findDestinationsInLayer, PathFinder } from '../utils/tilemaps';
 import { PASSENGER } from '../passenger/constants';
-
-type Job = {
-  type: 'move';
-  destination: {x: number, y: number};
-}
+import getPassengerTasks, { TaskDestinationMap } from '../passenger/tasks';
+import { GAME_CONFIG } from '../config';
 
 export class Game extends Scene
 {
@@ -23,6 +20,7 @@ export class Game extends Scene
 
     focusPassenger: Passenger | null;
 
+    destinations: TaskDestinationMap;
     passengerTasks: PassengerTask[];
 
     constructor ()
@@ -32,137 +30,123 @@ export class Game extends Scene
 
     create ()
     {
-        this.camera = this.cameras.main;
+      this.camera = this.cameras.main;
 
-        const map = this.make.tilemap({ key: 'airport' });
+      const map = this.make.tilemap({ key: GAME_CONFIG.TILEMAP_KEY });
 
-        const tileset = map.addTilesetImage('airport', 'airport'); // name must match what's in Tiled
-        const floorLayer = map.createLayer('floor', tileset!, 0, 0)!;
-        floorLayer.name = 'floor';
-        const barriersLayer = map.createLayer('barriers', tileset!, 0, 0)!;
-        barriersLayer.name = 'barriers';
-
-        const pathFinder = new PathFinder(map, barriersLayer);
-
-        barriersLayer.setCollisionByProperty({ collides: true });
-
-        this.passengers = this.add.group({
-          classType: Passenger,
-          maxSize: 100,
-          runChildUpdate: true
-        });
-
-        const targets = [
-          {x: 500, y: 400},
-          {x: 300, y: 100},
-        ];
-
-        targets.forEach((target, index) => {
-          this.add.text(target.x, target.y, `TARGET ${index + 1}`, {
-            fontSize: 18,
-            color: '#000000'
-          });
-        });
-
-        this.spawnButton = this.add.text(0, 0, 'SPAWN', {
-          fontSize: 18,
-          color: '#000000'
-        });
-        this.spawnButton.setInteractive();
-        this.spawnButton.on('pointerdown', () => {
-          this.spawnPassenger(pathFinder);
-        });
-
-        this.spawnButtonDebug = this.add.text(0, 20, 'SPAWN DEBUG', {
-          fontSize: 18,
-          color: '#000000'
-        });
-        this.spawnButtonDebug.setInteractive();
-        this.spawnButtonDebug.on('pointerdown', () => {
-          this.spawnPassenger(pathFinder, true);
-        });
-
-        this.passengerListText = this.add.text(0, 40, 'Passengers:', {
-          fontSize: 18,
-          color: '#000000'
-        });
-
-        this.passengerTasks = [
-          {
-            type: 'move',
-            destination: targets[0],
-            name: 'move 1',
-            inProgress: false
-          },
-          {
-            type: 'move',
-            destination: targets[1],
-            name: 'move 2',
-            inProgress: false
-          }
-        ];
-
-        // this.spawnPassenger(pathFinder, true);
-        
-        // spawn passengers every 3 seconds
-        // this.time.addEvent({
-        //   delay: 1000,
-        //   callback: () => {
-        //     this.spawnPassenger(pathFinder);
-        //   },
-        //   callbackScope: this,
-        //   // loop: true
-        // });
-
-        EventBus.emit('current-scene-ready', this);
-      }
+      const tileset = map.addTilesetImage(GAME_CONFIG.TILESET_KEY, GAME_CONFIG.TILESET_IMAGE_KEY); // name must match what's in Tiled
+      const floorLayer = map.createLayer('floor', tileset!, 0, 0)!;
+      floorLayer.name = 'floor';
       
-      spawnPassenger (pathFinder: PathFinder, debug: boolean = false): Passenger
-      {      
-        const passengerData = passengers[Math.floor(Math.random() * passengers.length)];
-        
-        const xPadding = passengerData.width / 2;
-        const yPadding = passengerData.height / 2;
-        
-        const spawnX = xPadding;
-        const spawnY = SIZE.HEIGHT - yPadding;
-        
-        const newPassenger = new Passenger(this, spawnX, spawnY, passengerData.sprite, {
-          name: passengerData.name as PassengerTexture,
-          tasks: this.passengerTasks,
-          pathFinder: pathFinder,
-          debug: debug ? {
-            showPath: true,
-            showPathTraced: true,
-            debugLog: true
-          } : undefined
+      const collidablesLayer = map.createLayer('collidables', tileset!, 0, 0)!;
+      collidablesLayer.name = 'collidables';
+      collidablesLayer.setCollisionByProperty({ collides: true });
+
+      console.log({collidablesLayer})
+
+      this.destinations = findDestinationsInLayer(collidablesLayer);
+
+      const pathFinder = new PathFinder(map, collidablesLayer);
+
+      const debugPath = pathFinder.findPathInTileCoords(this.destinations.bag_dropoff, this.destinations.body_scanner);
+      console.log({
+        bagDropoff: this.destinations.bag_dropoff,
+        bodyScanner: this.destinations.body_scanner,
+        debugPath
+      })        
+
+      this.passengers = this.add.group({
+        classType: Passenger,
+        maxSize: 100,
+        runChildUpdate: true
+      });
+
+      this.spawnButton = this.add.text(0, 0, 'SPAWN', {
+        fontSize: 18,
+        color: '#000000'
+      });
+      this.spawnButton.setInteractive();
+      this.spawnButton.on('pointerdown', () => {
+        this.spawnPassenger(pathFinder);
+      });
+
+      this.spawnButtonDebug = this.add.text(0, 20, 'SPAWN DEBUG', {
+        fontSize: 18,
+        color: '#000000'
+      });
+      this.spawnButtonDebug.setInteractive();
+      this.spawnButtonDebug.on('pointerdown', () => {
+        this.spawnPassenger(pathFinder, true);
+      });
+
+      this.passengerListText = this.add.text(0, 40, `Passengers: ${this.passengers.getChildren().length}`, {
+        fontSize: 18,
+        color: '#000000'
+      });
+
+      // this.spawnPassenger(pathFinder, true);
+      
+      // spawn passengers every 3 seconds
+      if(GAME_CONFIG.AUTO_SPAWN) {
+        this.time.addEvent({
+          delay: 1000 / GAME_CONFIG.SPAWN_RATE,
+          callback: () => {
+            this.spawnPassenger(pathFinder);
+          },
+          callbackScope: this,
+          loop: true
         });
-  
-        // @ts-ignore
-        const collider = this.physics.add.overlap(newPassenger, this.passengers, (passenger: Passenger, other: Passenger) => {
-          passenger.onHitOtherPassenger(other);
-          other.onHitOtherPassenger(passenger);
-
-          collider.active = false;
-
-          this.time.delayedCall(PASSENGER.WAIT_AFTER_COLLISION_MS, () => {
-            collider.active = true;
-          });
-        });
-
-        //detect when passenger is clicked on
-        newPassenger.setInteractive();
-        newPassenger.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-          this.focusPassenger = newPassenger;
-
-          newPassenger.debug.debugLog = !newPassenger.debug.debugLog;
-          // newPassenger.markForDestroy();
-        });
-        
-        this.passengers.add(newPassenger);
-  
-        return newPassenger;
       }
+
+      EventBus.emit('current-scene-ready', this);
+    }
+      
+    spawnPassenger (pathFinder: PathFinder, debug: boolean = false): Passenger
+    {
+      const passengerData = passengers[Math.floor(Math.random() * passengers.length)];
+      
+      const xPadding = passengerData.width / 2;
+      const yPadding = passengerData.height / 2;
+      
+      const spawnX = xPadding;
+      const spawnY = SIZE.HEIGHT - yPadding;
+      
+      const newPassenger = new Passenger(this, spawnX, spawnY, passengerData.sprite, {
+        name: passengerData.name as PassengerTexture,
+        tasks: getPassengerTasks(this.destinations),
+        pathFinder: pathFinder,
+        debug: debug ? {
+          showPath: true,
+          showPathTraced: true,
+          debugLog: true,
+          showDestinations: true
+        } : undefined
+      });
+
+      // @ts-ignore
+      const collider = this.physics.add.overlap(newPassenger, this.passengers, (passenger: Passenger, other: Passenger) => {
+        passenger.onHitOtherPassenger(other);
+        other.onHitOtherPassenger(passenger);
+
+        collider.active = false;
+
+        this.time.delayedCall(PASSENGER.WAIT_AFTER_COLLISION_MS, () => {
+          collider.active = true;
+        });
+      });
+
+      //detect when passenger is clicked on
+      newPassenger.setInteractive();
+      newPassenger.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        this.focusPassenger = newPassenger;
+
+        newPassenger.debug.debugLog = !newPassenger.debug.debugLog;
+      });
+      
+      this.passengers.add(newPassenger);
+
+      return newPassenger;
+    }
 
     update (time: number, delta: number)
     {
@@ -170,9 +154,9 @@ export class Game extends Scene
         // check emoji or walking emoji
         // const emoji = (passenger as Passenger).atDestination ? '✅' : '🚶‍♂️';
         const impeded = (passenger as Passenger).impeded ? '🚫' : '';
-        return `${index + 1}. ${passenger.name} ${passenger.currentTaskIndex} ${impeded} ${(passenger as Passenger).currentStepInPath}`;
+        return `${index + 1}. ${passenger.name} ${passenger.currentTaskIndex} ${impeded} (${passenger.body.x.toFixed(0)}, ${passenger.body.y.toFixed(0)}) ${(passenger as Passenger).currentStepInPath}`;
       }).join('\n');
-      this.passengerListText.setText(`Passengers:\n${passengerList}`);
+      this.passengerListText.setText(`Passengers: ${this.passengers.getChildren().length}\n${passengerList}`);
 
       if(this.focusPassengerDetails) {
         this.focusPassengerDetails.destroy();

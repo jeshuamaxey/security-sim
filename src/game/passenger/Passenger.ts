@@ -1,9 +1,9 @@
 import { PASSENGER } from "./constants";
 
 import { spriteAnimations } from '../sprite-animations';
-import { IPoint } from "astar-typescript/dist/interfaces/astar.interfaces";
 import { PathFinder } from "../utils/tilemaps";
-import { SIZE } from "../main";
+import { TaskDestination } from "./tasks";
+import { GAME_CONFIG } from "../config";
 
 export type PassengerTexture = 'adam' | 'alex' | 'bob' | 'amelia';
 
@@ -13,11 +13,11 @@ type PassengerDebugConfig = {
   showPath?: boolean;
   showPathTraced?: boolean;
   debugLog?: boolean;
+  showDestinations?: boolean;
 }
 
 type PassengerConfig = {
   name: PassengerTexture;
-  destination?: Vector2Like;
   pathFinder: PathFinder;
   debug?: PassengerDebugConfig;
   tasks: PassengerTask[];
@@ -32,10 +32,11 @@ export type PassengerTask = {
   completed?: boolean;
 } & ({
   type: 'move';
-  destination: Vector2Like;
+  destination: TaskDestination;
 } | {
   type: 'action';
-  action: () => void;
+  update: () => void;
+  init: () => void;
 } | {
   type: 'wait';
   durationMs: number;
@@ -43,7 +44,6 @@ export type PassengerTask = {
 class Passenger extends Phaser.Physics.Arcade.Sprite {
   private direction: Direction;
   private speed: number;
-  private destination?: Vector2Like;
   public body: Phaser.Physics.Arcade.Body;
 
   public pathFinder: PathFinder;
@@ -63,10 +63,11 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
 
   private tasks: PassengerTask[];
   private _currentTaskIndex: number;
-  // private currentTask: PassengerTask | null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string, config: PassengerConfig) {
     super(scene, x, y, texture);
+
+    this.setScale(GAME_CONFIG.SCALE);
 
     scene.add.existing(this);
     scene.physics.world.enable(this);
@@ -76,7 +77,7 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     this.body.setSize(16, 24);
     this.body.setOffset(0, 8);
     this.setOrigin(0.5, 0.8);
-
+    
     // setup physics behaviour
     this.setPushable(false);
     this.setImmovable(true);
@@ -89,63 +90,55 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     for(const animation in spriteAnimations) {
       this.anims.create(spriteAnimations[animation as keyof typeof spriteAnimations](scene, texture));
     }
-
+    
     // CONFIG
     this.debug = config.debug || {
       showPath: false,
       showPathTraced: false,
-      debugLog: false
+      debugLog: false,
+      showDestinations: false
     };
     this.debugGraphics = scene.add.graphics();
     this.speed = PASSENGER.SPEED;
     this.direction = 'none';
     this.name = config.name + Math.round(Math.random()*10000).toString();
-    this.destination = config.destination;
-
+    
     this.markedForDestroy = false;
-
+    
     this.pathFinder = config.pathFinder;
     this.currentStepInPath = 0;
-
-    this.lastCollisionTimeout = undefined;
-
-    this.tasks = config.tasks;
-    this._currentTaskIndex = 0;
-
-    // Draw the path
-    const graphics = scene.add.graphics();
-
-    if(config.debug?.showPath && this.pathInWorldCoords) {
-      graphics.lineStyle(2, 0x00ff00, 1);
-      
-      // Draw lines between waypoints
-      for (let i = 0; i < this.pathInWorldCoords.length - 1; i++) {
-        const start = this.pathInWorldCoords[i];
-        const end = this.pathInWorldCoords[i + 1];
-        graphics.lineBetween(start.x, start.y, end.x, end.y);
-      }
     
-      // Draw circles at waypoints
-      graphics.fillStyle(0xff0000, 1);
-      this.pathInWorldCoords.forEach((point, i) => {
-        graphics.fillCircle(point.x, point.y, 4);
-        scene.add.text(point.x, point.y, i.toString(), {
-          fontSize: 12,
-          color: '#000000'
-        });
-      });
+    this.lastCollisionTimeout = undefined;
+    
+    this.tasks = [...config.tasks];
+    this._currentTaskIndex = 0;
+    
+    
+    if(config.debug?.showPath && this.pathInWorldCoords) {
+      this.drawPath(this.pathInWorldCoords);
     }
-
-    this.setScale(PASSENGER.SCALE);
+    
   }
-
+  
   update(time: number, delta: number) {
     super.update(time, delta);
-
+    
     if(this.currentTask) {
       if(this.currentTask.type === 'move') {
         this.updateMoveTask();
+      } else if(this.currentTask.type === 'action') {
+        this.updateActionTask();
+      } else if(this.currentTask.type === 'wait') {
+        this.updateWaitTask();
       }
+    } else {
+      // mark for destory after 5 seconds
+      this.scene.time.addEvent({
+        delay: 5000,
+        callback: () => {
+          this.markForDestroy();
+        }
+      });
     }
 
     if(this.debug?.showPathTraced) {
@@ -153,18 +146,57 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       this.debugGraphics.fillCircle(this.x, this.y, 4);
     }
 
+    if(this.debug?.showDestinations && this.currentTask && this.currentTask.type === 'move') {
+      this.debugGraphics.fillStyle(0x00ff00, 1);
+      this.debugGraphics.fillCircle(this.currentTask.destination.x, this.currentTask.destination.y, 4);
+      this.scene.add.text(this.currentTask.destination.x, this.currentTask.destination.y, `D${this._currentTaskIndex + 1}`, {
+        fontSize: 18,
+        color: '#00ff00'
+      });
+    }
+
     if(this.markedForDestroy) {
       this.destroy();
     }
   }
 
-  private pLog(message: string, method: 'log' | 'warn' | 'error' = 'log') {
+  private drawPath(pathInWorldCoords: Vector2Like[]) {
+    this.debugGraphics.lineStyle(2, 0x00ff00, 1);
+      
+      // Draw lines between waypoints
+      for (let i = 0; i < pathInWorldCoords.length - 1; i++) {
+        const start = pathInWorldCoords[i];
+        const end = pathInWorldCoords[i + 1];
+        this.debugGraphics.lineBetween(start.x, start.y, end.x, end.y);
+      }
+      
+      // Draw circles at waypoints
+      this.debugGraphics.fillStyle(0xff0000, 1);
+      pathInWorldCoords.forEach((point, i) => {
+        this.debugGraphics.fillCircle(point.x, point.y, 4);
+        this.scene.add.text(point.x, point.y, i.toString(), {
+          fontSize: 12,
+          color: '#000000'
+        });
+      });
+
+      this.tasks.forEach((task, index) => {
+        if(task.type === 'move') {
+          this.scene.add.text(task.destination.x, task.destination.y, `T${index + 1}`, {
+            fontSize: 18,
+            color: '#00ff00'
+          });
+        }
+      })
+  }
+
+  private pLog(message: string, method: 'log' | 'warn' | 'error' | 'group' | 'groupEnd' = 'log') {
     if(this.debug?.debugLog) {
       console[method](`${this.name} :: ${message}`);
     }
   }
 
-  private get currentTask() {
+  private get currentTask(): PassengerTask | null {
     if(this._currentTaskIndex >= this.tasks.length) {
       return null;
     }
@@ -184,25 +216,45 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       console.warn('no body for passenger', this.name);
       return;
     }
-    
-    
+
     if(!this.currentTask.inProgress) {
       this.pLog(`beginning move task: "${this.currentTask.name}"`);
+      this.pLog(`currentTask.destination: ${JSON.stringify(this.currentTask.destination, null, 2)}`, 'log');
       const startPosition = { x: this.x, y: this.y };
-      this.pathInTileCoords = this.pathFinder.findPath(startPosition, this.currentTask.destination as IPoint);
-      this.pathInWorldCoords = this.pathInTileCoords.map(([x, y]) => {
-        const xWorld = this.pathFinder.tilemap.tileToWorldX(x);
-        const yWorld = this.pathFinder.tilemap.tileToWorldY(y);
+      const startTile = { x: this.pathFinder.tilemap.worldToTileX(startPosition.x), y: this.pathFinder.tilemap.worldToTileY(startPosition.y) };
+      if(startTile.x === null || startTile.y === null) {
+        throw new Error('Invalid start tile coordinates');
+      }
 
-        if(xWorld === null || yWorld === null) {
-          throw new Error('Invalid tile coordinates');
-        }
+      const start = {
+        ...startPosition,
+        tileX: startTile.x,
+        tileY: startTile.y
+      }
 
-        return {
-          x: xWorld + this.pathFinder.tilemap.tileWidth / 2, 
-          y: yWorld + this.pathFinder.tilemap.tileHeight / 2
-        };
-      });
+      // Use the actual task destination instead of hardcoded values
+      const destination = this.currentTask.destination;
+      const destinationTile = { 
+        x: this.pathFinder.tilemap.worldToTileX(destination.x), 
+        y: this.pathFinder.tilemap.worldToTileY(destination.y) 
+      };
+      if(destinationTile.x === null || destinationTile.y === null) {
+        throw new Error('Invalid destination tile coordinates');
+      }
+
+      const end = {
+        ...destination,
+        tileX: destinationTile.x,
+        tileY: destinationTile.y
+      }
+
+      this.pathInTileCoords = this.pathFinder.findPathInTileCoords(start, end);
+      this.pathInWorldCoords = this.pathFinder.findPathInWorldCoords(start, end);
+
+      if(this.debug.showPath) {
+        this.drawPath(this.pathInWorldCoords);
+      }
+
       this.currentTask.inProgress = true;
     }
 
@@ -210,6 +262,37 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       this.pLog(`moving along path: "${this.currentTask.name}"`);
       this.moveAlongPathWithPhysics(this.pathInWorldCoords, this.speed);
     }
+  }
+
+  private updateActionTask() {
+    if(!this.currentTask || this.currentTask.type !== 'action') {
+      return;
+    }
+
+    if(!this.currentTask.inProgress) {
+      this.pLog(`beginning action task: "${this.currentTask.name}"`);
+      this.currentTask.init()
+      this.currentTask.inProgress = true;
+    } else {
+      this.currentTask.update();
+    }
+  }
+
+  private updateWaitTask() {
+    if(!this.currentTask || this.currentTask.type !== 'wait') {
+      return;
+    }
+
+    this.pLog(`waiting for ${this.currentTask.durationMs}ms (this is untested)`, 'log');
+
+    this.scene.time.addEvent({
+      delay: this.currentTask.durationMs,
+      callback: () => {
+        if(this.currentTask) {
+          this.currentTask.completed = true;
+        }
+      }
+    });
   }
 
   destroy() {
@@ -340,8 +423,6 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     let initialDistanceFromWaypoint = 0;
     
     const moveToNextTile = () => {
-      // if(this.debug?.debugLog) console.log('moveToNextTile', this.name, this.currentStepInPath, worldPath.length);
-
       if (this.impeded) {
         this.pauseMovingAlongPath();
         return;
@@ -366,7 +447,11 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       const dy = target.y - this.y;
       
       const angle = Math.atan2(dy, dx);
-      this.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed;
+
+      this.body.setVelocity(vx, vy);
       
       initialDistanceFromWaypoint = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
       this.direction = this.updateDirectionToTarget({ x: this.x, y: this.y }, target, PASSENGER.WAYPOINT_TOLERANCE);
