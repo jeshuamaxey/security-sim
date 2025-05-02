@@ -75,9 +75,9 @@
  <tile id="17">
   <properties>
    <property name="collides" type="bool" value="true"/>
-   <property name="name" value="bag_drop"/>
-   <property name="passengerInteractions" value="unloadBag"/>
-   <property name="passengerInteractive" type="bool" value="true"/>
+   <property name="name" value="bag_drop_bag_bay"/>
+   <property name="passengerInteractions" value=""/>
+   <property name="passengerInteractive" type="bool" value="false"/>
   </properties>
  </tile>
  <tile id="18">
@@ -101,6 +101,13 @@
    <property name="collides" type="bool" value="true"/>
    <property name="name" value=""/>
    <property name="passengerInteractions" value=""/>
+   <property name="passengerInteractive" type="bool" value="true"/>
+  </properties>
+ </tile>
+ <tile id="22">
+  <properties>
+   <property name="name" value="bag_drop_passenger_bay"/>
+   <property name="passengerInteractions" value="unloadBag"/>
    <property name="passengerInteractive" type="bool" value="true"/>
   </properties>
  </tile>

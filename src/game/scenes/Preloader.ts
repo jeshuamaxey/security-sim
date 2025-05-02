@@ -9,10 +9,6 @@ export class Preloader extends Scene
 
     init ()
     {
-        //  We loaded this image in our Boot Scene, so we can display it here
-        this.add.image(512, 384, 'background');
-
-        
         //  A simple progress bar. This is the outline of the bar.
         this.add.rectangle(512, 384, 468, 32).setStrokeStyle(1, 0xffffff);
         
@@ -42,6 +38,8 @@ export class Preloader extends Scene
 
         this.load.tilemapTiledJSON(GAME_CONFIG.TILEMAP_KEY, GAME_CONFIG.TILEMAP_PATH);
         this.load.image(GAME_CONFIG.TILESET_IMAGE_KEY, GAME_CONFIG.TILESET_PATH);
+
+        this.load.image('bag', 'spritesheets/bag.png');
       }
       create ()
       {

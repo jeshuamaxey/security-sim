@@ -4,21 +4,26 @@ import { passengers, SIZE } from '../main';
 import Passenger, { PassengerTask, PassengerTexture } from '../passenger/Passenger';
 import { findDestinationsInLayer, PathFinder } from '../utils/tilemaps';
 import { PASSENGER } from '../passenger/constants';
-import getPassengerTasks, { TaskDestinationMap } from '../passenger/tasks';
+import getPassengerTasks, { TaskDestinationMap } from '../tasks/tasks';
 import { GAME_CONFIG } from '../config';
+import Bag from '../bag/Bag';
 
 export class Game extends Scene
 {
     camera: Phaser.Cameras.Scene2D.Camera;
     background: Phaser.GameObjects.Image;
+    collidablesLayer: Phaser.Tilemaps.TilemapLayer;
+
     gameText: Phaser.GameObjects.Text;
     passengers: Phaser.GameObjects.Group;
     spawnButton: Phaser.GameObjects.Text;
     spawnButtonDebug: Phaser.GameObjects.Text;
     passengerListText: Phaser.GameObjects.Text;
     focusPassengerDetails: Phaser.GameObjects.Text;
-
+    scoreText: Phaser.GameObjects.Text;
     focusPassenger: Passenger | null;
+
+    score: number;
 
     destinations: TaskDestinationMap;
     passengerTasks: PassengerTask[];
@@ -38,22 +43,23 @@ export class Game extends Scene
       const floorLayer = map.createLayer('floor', tileset!, 0, 0)!;
       floorLayer.name = 'floor';
       
-      const collidablesLayer = map.createLayer('collidables', tileset!, 0, 0)!;
-      collidablesLayer.name = 'collidables';
-      collidablesLayer.setCollisionByProperty({ collides: true });
+      this.collidablesLayer = map.createLayer('collidables', tileset!, 0, 0)!;
+      this.collidablesLayer.name = 'collidables';
+      this.collidablesLayer.setCollisionByProperty({ collides: true });
 
-      console.log({collidablesLayer})
+      console.log({collidablesLayer: this.collidablesLayer})
 
-      this.destinations = findDestinationsInLayer(collidablesLayer);
+      const debugGraphics = this.add.graphics().setAlpha(0.75);
+      this.collidablesLayer.renderDebug(debugGraphics, {
+        tileColor: null, // No color for non-colliding tiles
+        collidingTileColor: new Phaser.Display.Color(255, 0, 0, 255), // Red for collidable tiles
+        faceColor: new Phaser.Display.Color(0, 255, 0, 255) // Green for collision face edges
+      });
 
-      const pathFinder = new PathFinder(map, collidablesLayer);
 
-      const debugPath = pathFinder.findPathInTileCoords(this.destinations.bag_dropoff, this.destinations.body_scanner);
-      console.log({
-        bagDropoff: this.destinations.bag_dropoff,
-        bodyScanner: this.destinations.body_scanner,
-        debugPath
-      })        
+      this.destinations = findDestinationsInLayer(this.collidablesLayer);
+
+      const pathFinder = new PathFinder(map, this.collidablesLayer);       
 
       this.passengers = this.add.group({
         classType: Passenger,
@@ -84,7 +90,11 @@ export class Game extends Scene
         color: '#000000'
       });
 
-      // this.spawnPassenger(pathFinder, true);
+      this.score = 0;
+      this.scoreText = this.add.text(300, 0, `Score: ${this.score}`, {
+        fontSize: 18,
+        color: '#000000'
+      });
       
       // spawn passengers every 3 seconds
       if(GAME_CONFIG.AUTO_SPAWN) {
@@ -110,17 +120,29 @@ export class Game extends Scene
       
       const spawnX = xPadding;
       const spawnY = SIZE.HEIGHT - yPadding;
+
+      const bag = new Bag(this, spawnX, spawnY, 'bag', {
+        contents: {
+          has_electronics: true,
+          has_liquids: true,
+          has_suspicious_item: true
+        }
+      });
       
       const newPassenger = new Passenger(this, spawnX, spawnY, passengerData.sprite, {
         name: passengerData.name as PassengerTexture,
         tasks: getPassengerTasks(this.destinations),
         pathFinder: pathFinder,
+        bag: bag,
         debug: debug ? {
           showPath: true,
           showPathTraced: true,
           debugLog: true,
           showDestinations: true
-        } : undefined
+        } : undefined,
+        onArrivedAtAirside: () => {
+          this.updateScore();
+        }
       });
 
       // @ts-ignore
@@ -148,16 +170,18 @@ export class Game extends Scene
       return newPassenger;
     }
 
-    update (time: number, delta: number)
-    {
+    private renderPassengerList() {
       const passengerList = (this.passengers.getChildren() as Passenger[]).map((passenger, index) => {
         // check emoji or walking emoji
-        // const emoji = (passenger as Passenger).atDestination ? '✅' : '🚶‍♂️';
+        const emoji = (passenger as Passenger).bag ? '💼' : '🚫';
         const impeded = (passenger as Passenger).impeded ? '🚫' : '';
-        return `${index + 1}. ${passenger.name} ${passenger.currentTaskIndex} ${impeded} (${passenger.body.x.toFixed(0)}, ${passenger.body.y.toFixed(0)}) ${(passenger as Passenger).currentStepInPath}`;
+        return `${index + 1}. ${passenger.name} ${passenger.currentTaskIndex} ${emoji} ${impeded} (${passenger.currentTask?.name}) ${(passenger as Passenger).currentStepInPath}`;
       }).join('\n');
-      this.passengerListText.setText(`Passengers: ${this.passengers.getChildren().length}\n${passengerList}`);
 
+      this.passengerListText.setText(`Passengers: ${this.passengers.getChildren().length}\n${passengerList}`);
+    }
+
+    private renderFocusedPassengerDetails() {
       if(this.focusPassengerDetails) {
         this.focusPassengerDetails.destroy();
       }
@@ -179,6 +203,22 @@ export class Game extends Scene
           align: 'right'
         });
       }
+    }
+
+    private renderScore() {
+      this.scoreText.setText(`Score: ${this.score}`);
+    }
+
+    private updateScore() {
+      this.score += 1;
+    }
+
+    update (time: number, delta: number)
+    {
+      this.renderPassengerList();
+      this.renderFocusedPassengerDetails();
+
+      this.renderScore()
     }
     
 }

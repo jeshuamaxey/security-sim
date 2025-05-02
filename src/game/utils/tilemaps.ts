@@ -1,5 +1,5 @@
 import { AStarFinder } from "astar-typescript";
-import { TaskDestination, TaskDestinationMap } from "../passenger/tasks";
+import { TaskDestination, TaskDestinationMap } from "../tasks/tasks";
 
 const getTilemapMatrix = (layer: Phaser.Tilemaps.TilemapLayer) => {
   const grid: number[][] = [];
@@ -46,8 +46,6 @@ export class PathFinder {
       { x: end.tileX, y: end.tileY }
     );
 
-    console.log({path})
-
     return path;
   }
 
@@ -79,29 +77,38 @@ export const findDestinationsInLayer = (tilemapLayer: Phaser.Tilemaps.TilemapLay
   const passengerInteractiveTiles = tilemapLayer.getTilesWithin(0, 0, tilemapLayer.width, tilemapLayer.height)
     .filter((tile: any) => tile.properties.passengerInteractive);
 
-  const bagDropoffTiles = passengerInteractiveTiles.filter((tile: any) => tile.properties.destinationKey === 'bag_dropoff');
+  const bagDropoffPassengerBayTiles = passengerInteractiveTiles.filter((tile: any) => tile.properties.destinationKey === 'bag_dropoff_passenger_bay');
+  // const bagDropoffTiles = passengerInteractiveTiles.filter((tile: any) => tile.properties.destinationKey === 'bag_dropoff');
   const bodyScannerTiles = passengerInteractiveTiles.filter((tile: any) => tile.properties.destinationKey === 'body_scanner');
-  const bagPickupTiles = passengerInteractiveTiles.filter((tile: any) => tile.properties.destinationKey === 'bag_pickup');
+  const bagPickupTiles = passengerInteractiveTiles.filter((tile: any) => tile.properties.destinationKey === 'bag_pickup_passenger_bay');
   const gateTiles = passengerInteractiveTiles.filter((tile: any) => tile.properties.destinationKey === 'gate');
 
   const scaleX = tilemapLayer.scaleX;
   const scaleY = tilemapLayer.scaleY;
-  console.log({bagDropoffTiles, bodyScannerTiles, bagPickupTiles, gateTiles, scaleX, scaleY})
+  console.log({bagDropoffPassengerBayTiles, bodyScannerTiles, bagPickupTiles, gateTiles, scaleX, scaleY})
+
+  console.warn('NB we pick only the first of each collidables we find. maps with multiple drop offs etc wont work as intended')
 
   const destinations: TaskDestinationMap = {
-    bag_dropoff: {
-      tileX: bagDropoffTiles[0].x,
-      tileY: bagDropoffTiles[0].y,
-      x: bagDropoffTiles[0].pixelX*scaleX + bagDropoffTiles[0].width / 2,
-      y: bagDropoffTiles[0].pixelY*scaleY + bagDropoffTiles[0].height / 2
+    bag_dropoff_passenger_bay: {
+      tileX: bagDropoffPassengerBayTiles[0].x,
+      tileY: bagDropoffPassengerBayTiles[0].y,
+      x: bagDropoffPassengerBayTiles[0].pixelX*scaleX + bagDropoffPassengerBayTiles[0].width / 2,
+      y: bagDropoffPassengerBayTiles[0].pixelY*scaleY + bagDropoffPassengerBayTiles[0].height / 2
     },
+    // bag_dropoff: {
+    //   tileX: bagDropoffTiles[0].x,
+    //   tileY: bagDropoffTiles[0].y,
+    //   x: bagDropoffTiles[0].pixelX*scaleX + bagDropoffTiles[0].width / 2,
+    //   y: bagDropoffTiles[0].pixelY*scaleY + bagDropoffTiles[0].height / 2
+    // },
     body_scanner: {
       tileX: bodyScannerTiles[0].x,
       tileY: bodyScannerTiles[0].y,
       x: bodyScannerTiles[0].pixelX*scaleX + bodyScannerTiles[0].width / 2,
       y: bodyScannerTiles[0].pixelY*scaleY + bodyScannerTiles[0].height / 2
     },
-    bag_pickup: {
+    bag_pickup_passenger_bay: {
       tileX: bagPickupTiles[0].x,
       tileY: bagPickupTiles[0].y,
       x: bagPickupTiles[0].pixelX*scaleX + bagPickupTiles[0].width / 2,

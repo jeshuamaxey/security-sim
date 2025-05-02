@@ -2,8 +2,10 @@ import { PASSENGER } from "./constants";
 
 import { spriteAnimations } from '../sprite-animations';
 import { PathFinder } from "../utils/tilemaps";
-import { TaskDestination } from "./tasks";
+import { TaskDestination } from "../tasks/tasks";
 import { GAME_CONFIG } from "../config";
+import Bag from "../bag/Bag";
+import { Game } from "../scenes/Game";
 
 export type PassengerTexture = 'adam' | 'alex' | 'bob' | 'amelia';
 
@@ -19,8 +21,10 @@ type PassengerDebugConfig = {
 type PassengerConfig = {
   name: PassengerTexture;
   pathFinder: PathFinder;
+  bag?: Bag;
   debug?: PassengerDebugConfig;
   tasks: PassengerTask[];
+  onArrivedAtAirside: () => void;
 }
 
 type Direction = 'left' | 'right' | 'up' | 'down' | 'none';
@@ -35,8 +39,8 @@ export type PassengerTask = {
   destination: TaskDestination;
 } | {
   type: 'action';
-  update: () => void;
-  init: () => void;
+  update: (scene: Game, passenger: Passenger) => void;
+  init: (scene: Game, passenger: Passenger) => void;
 } | {
   type: 'wait';
   durationMs: number;
@@ -56,13 +60,18 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   public lastPassengerCollidedWith?: Passenger;
   private lastCollisionTimeout?: Phaser.Time.TimerEvent;
 
+  public bag?: Bag;
+
   public debug: PassengerDebugConfig;
   public debugGraphics: Phaser.GameObjects.Graphics;
 
   private markedForDestroy: boolean;
+  private securityCompleteTimer?: Phaser.Time.TimerEvent;
 
   private tasks: PassengerTask[];
   private _currentTaskIndex: number;
+
+  private onArrivedAtAirside: () => void;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string, config: PassengerConfig) {
     super(scene, x, y, texture);
@@ -91,7 +100,7 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       this.anims.create(spriteAnimations[animation as keyof typeof spriteAnimations](scene, texture));
     }
     
-    // CONFIG
+    // DEBUG
     this.debug = config.debug || {
       showPath: false,
       showPathTraced: false,
@@ -99,6 +108,16 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       showDestinations: false
     };
     this.debugGraphics = scene.add.graphics();
+
+    // CONFIG
+    if(config.bag) {
+      this.bag = config.bag;
+      this.bag.setDepth(this.depth + 1);
+      this.bag.setPosition(this.x, this.y);
+    }
+
+    this.onArrivedAtAirside = config.onArrivedAtAirside;
+
     this.speed = PASSENGER.SPEED;
     this.direction = 'none';
     this.name = config.name + Math.round(Math.random()*10000).toString();
@@ -131,14 +150,20 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       } else if(this.currentTask.type === 'wait') {
         this.updateWaitTask();
       }
-    } else {
-      // mark for destory after 5 seconds
-      this.scene.time.addEvent({
+    } else if (!this.securityCompleteTimer && !this.markedForDestroy) {
+      // Only create the timer once when we run out of tasks
+      this.securityCompleteTimer = this.scene.time.addEvent({
         delay: 5000,
         callback: () => {
+          this.onArrivedAtAirside();
           this.markForDestroy();
         }
       });
+    }
+
+    // if the passenger has a bag, move the bag with the passenger
+    if(this.bag) {
+      this.bag.setPosition(this.x, this.y);
     }
 
     if(this.debug?.showPathTraced) {
@@ -190,13 +215,13 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       })
   }
 
-  private pLog(message: string, method: 'log' | 'warn' | 'error' | 'group' | 'groupEnd' = 'log') {
+  public pLog(message: string, method: 'log' | 'warn' | 'error' | 'group' | 'groupEnd' = 'log') {
     if(this.debug?.debugLog) {
       console[method](`${this.name} :: ${message}`);
     }
   }
 
-  private get currentTask(): PassengerTask | null {
+  public get currentTask(): PassengerTask | null {
     if(this._currentTaskIndex >= this.tasks.length) {
       return null;
     }
@@ -248,8 +273,12 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
         tileY: destinationTile.y
       }
 
-      this.pathInTileCoords = this.pathFinder.findPathInTileCoords(start, end);
       this.pathInWorldCoords = this.pathFinder.findPathInWorldCoords(start, end);
+
+      if(this.pathInWorldCoords.length === 0) {
+        this.pLog(`no path found for move task: "${this.currentTask.name}"`, 'error');
+        return;
+      }
 
       if(this.debug.showPath) {
         this.drawPath(this.pathInWorldCoords);
@@ -271,10 +300,10 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
 
     if(!this.currentTask.inProgress) {
       this.pLog(`beginning action task: "${this.currentTask.name}"`);
-      this.currentTask.init()
+      this.currentTask.init(this.scene as Game, this);
       this.currentTask.inProgress = true;
     } else {
-      this.currentTask.update();
+      this.currentTask.update(this.scene as Game, this);
     }
   }
 
@@ -296,7 +325,12 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   }
 
   destroy() {
-    this.checkArrivedAtWaypoint.remove();
+    if (this.checkArrivedAtWaypoint) {
+      this.checkArrivedAtWaypoint.remove();
+    }
+    if (this.securityCompleteTimer) {
+      this.securityCompleteTimer.remove();
+    }
 
     super.destroy();
   }
@@ -440,17 +474,18 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       }
 
       this.movingToDestination = true;
-  
+
+      
       const target = worldPath[this.currentStepInPath];
       
       const dx = target.x - this.x;
       const dy = target.y - this.y;
       
       const angle = Math.atan2(dy, dx);
-
+      
       const vx = Math.cos(angle) * speed;
       const vy = Math.sin(angle) * speed;
-
+      
       this.body.setVelocity(vx, vy);
       
       initialDistanceFromWaypoint = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
@@ -548,7 +583,7 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     this.moveToNextTask();
   }
 
-  private moveToNextTask() {
+ public moveToNextTask() {
     this.pLog('moveToNextTask()', 'log');
     this._currentTaskIndex++;
   }
