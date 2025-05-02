@@ -9,3 +9,7 @@ export const PASSENGER = {
 
   WAIT_AFTER_COLLISION_MS: 1000
 }
+
+export const BAG = {
+  CONVEYOR_SPEED: 100,
+}

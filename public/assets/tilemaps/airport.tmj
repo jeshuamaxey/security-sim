@@ -264,6 +264,11 @@
                          "value":"bag_scanner"
                         }, 
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"right"
+                        }, 
+                        {
                          "name":"passengerInteractions",
                          "type":"string",
                          "value":""

@@ -16,8 +16,10 @@ export class Game extends Scene
     map: Phaser.Tilemaps.Tilemap;
     collidablesLayer: Phaser.Tilemaps.TilemapLayer;
 
-    gameText: Phaser.GameObjects.Text;
     passengers: Phaser.GameObjects.Group;
+    bags: Phaser.GameObjects.Group;
+
+    gameText: Phaser.GameObjects.Text;
     spawnButton: Phaser.GameObjects.Text;
     spawnButtonDebug: Phaser.GameObjects.Text;
     passengerListText: Phaser.GameObjects.Text;
@@ -65,6 +67,12 @@ export class Game extends Scene
 
       this.passengers = this.add.group({
         classType: Passenger,
+        maxSize: 100,
+        runChildUpdate: true
+      });
+
+      this.bags = this.add.group({
+        classType: Bag,
         maxSize: 100,
         runChildUpdate: true
       });
@@ -131,6 +139,8 @@ export class Game extends Scene
         },
         onPerson: true
       });
+      
+      this.bags.add(bag);
       
       const newPassenger = new Passenger(this, spawnX, spawnY, passengerData.sprite, {
         name: passengerData.name as PassengerTexture,
