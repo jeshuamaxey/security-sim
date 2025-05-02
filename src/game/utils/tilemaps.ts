@@ -27,7 +27,6 @@ export class PathFinder {
   constructor(tilemap: Phaser.Tilemaps.Tilemap, layer: Phaser.Tilemaps.TilemapLayer) {
     this.tilemap = tilemap;
     this.grid = getTilemapMatrix(layer);
-    console.log({grid: this.grid})
     this.aStar = new AStarFinder({
       grid: { matrix: this.grid },
       diagonalAllowed: false
@@ -85,7 +84,6 @@ export const findDestinationsInLayer = (tilemapLayer: Phaser.Tilemaps.TilemapLay
 
   const scaleX = tilemapLayer.scaleX;
   const scaleY = tilemapLayer.scaleY;
-  console.log({bagDropoffPassengerBayTiles, bodyScannerTiles, bagPickupTiles, gateTiles, scaleX, scaleY})
 
   console.warn('NB we pick only the first of each collidables we find. maps with multiple drop offs etc wont work as intended')
 

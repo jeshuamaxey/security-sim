@@ -8,6 +8,7 @@ import getPassengerTasks, { TaskDestinationMap } from '../tasks/tasks';
 import { GAME_CONFIG } from '../config';
 import Bag from '../bag/Bag';
 
+const DEBUG_TILES = false;
 export class Game extends Scene
 {
     camera: Phaser.Cameras.Scene2D.Camera;
@@ -51,14 +52,14 @@ export class Game extends Scene
       this.collidablesLayer.name = 'collidables';
       this.collidablesLayer.setCollisionByProperty({ collides: true });
 
-      console.log({collidablesLayer: this.collidablesLayer})
-
-      const debugGraphics = this.add.graphics().setAlpha(0.75);
-      this.collidablesLayer.renderDebug(debugGraphics, {
-        tileColor: null, // No color for non-colliding tiles
-        collidingTileColor: new Phaser.Display.Color(255, 0, 0, 255), // Red for collidable tiles
-        faceColor: new Phaser.Display.Color(0, 255, 0, 255) // Green for collision face edges
-      });
+      if(DEBUG_TILES) {
+        const debugGraphics = this.add.graphics().setAlpha(0.75);
+        this.collidablesLayer.renderDebug(debugGraphics, {
+          tileColor: null, // No color for non-colliding tiles
+          collidingTileColor: new Phaser.Display.Color(255, 0, 0, 255), // Red for collidable tiles
+          faceColor: new Phaser.Display.Color(0, 255, 0, 255) // Green for collision face edges
+        });
+      }
 
 
       this.destinations = findDestinationsInLayer(this.collidablesLayer);

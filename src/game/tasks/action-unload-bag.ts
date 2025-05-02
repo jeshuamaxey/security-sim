@@ -6,8 +6,6 @@ const actionUnloadBag = (): PassengerTask => {
     name: 'unload bag',
     type: 'action',
     init: (scene: Game, passenger: Passenger) => {
-      console.log('init unload bag');
-
       // find nearest tile in map that is a bag conveyor
       const passengerTileX = scene.map.worldToTileX(passenger.x);
       const passengerTileY = scene.map.worldToTileY(passenger.y);
@@ -34,9 +32,7 @@ const actionUnloadBag = (): PassengerTask => {
 
       const conveyorTileX = bagConveyorTile?.pixelX + (bagConveyorTile?.width / 2);
       const conveyorTileY = bagConveyorTile?.pixelY + (bagConveyorTile?.height / 2);
-      
-      console.log({bagConveyorTile});
-      
+
       scene.time.delayedCall(2000, () => {
         if(!passenger.bag) {
           console.warn('no bag to unload');
@@ -57,9 +53,7 @@ const actionUnloadBag = (): PassengerTask => {
         passenger.moveToNextTask();
       });
     },
-    update: (scene: Game, passenger: Passenger) => {
-      console.log('unload bag');
-    },
+    update: (scene: Game, passenger: Passenger) => {},
     inProgress: false 
   }
 }

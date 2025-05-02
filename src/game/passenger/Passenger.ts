@@ -181,6 +181,7 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     }
 
     if(this.markedForDestroy) {
+      this.bag?.destroy();
       this.destroy();
     }
   }

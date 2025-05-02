@@ -13,7 +13,7 @@ type BagConfig = {
 }
 
 class Bag extends Phaser.Physics.Arcade.Sprite {
-  public sprite: Phaser.GameObjects.Sprite;
+  public id: string;
 
   public currentTile: Phaser.Tilemaps.Tile;
 
@@ -44,9 +44,8 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string, config: BagConfig) {
     super(scene, x, y, texture);
 
+    this.id = `bag-${Math.random().toString(36).substring(2, 15)}`;
     this.game = scene as Game;
-
-    console.log('creating bag')
 
     // physics body
     scene.add.existing(this);
@@ -88,7 +87,7 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
     super.update(time, delta);
     this.currentTile = this.game.collidablesLayer.getTileAtWorldXY(this.x, this.y);
 
-    if(!this.currentTile) {
+    if(!this.currentTile && !this.onPerson) {
       console.warn('no tile found for bag');
       this.setVelocity(0, 0);
       return;
@@ -155,6 +154,10 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
     this.propel(this.currentTile.properties.direction);
   }
 
+  /**
+   * Returns true if the bag is at or past the centre line of the tile it is over
+   * at which point the current conveyor direction is no longer valid and the bag should change course
+   */
   get changeCourse() {
     const atOrPastTileCentreLineX = this.x >= this.currentTile.pixelX + (this.currentTile.width / 2);
     const atOrPastTileCentreLineY = this.y < this.currentTile.pixelY + (this.currentTile.height / 2);

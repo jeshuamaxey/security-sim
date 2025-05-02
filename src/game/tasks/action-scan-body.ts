@@ -7,8 +7,6 @@ const actionScanBody = (): PassengerTask => {
     type: 'action',
     update: () => {},
     init: (scene: Game, passenger: Passenger) => {
-      console.log('scan body');
-
       scene.time.delayedCall(2000, () => {
         passenger.pLog('scanned body');
         if(passenger.currentTask) {
