@@ -162,7 +162,7 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     }
 
     // if the passenger has a bag, move the bag with the passenger
-    if(this.bag) {
+    if(this.bag && this.bag.onPerson) {
       this.bag.setPosition(this.x, this.y);
     }
 

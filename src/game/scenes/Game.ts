@@ -12,6 +12,8 @@ export class Game extends Scene
 {
     camera: Phaser.Cameras.Scene2D.Camera;
     background: Phaser.GameObjects.Image;
+
+    map: Phaser.Tilemaps.Tilemap;
     collidablesLayer: Phaser.Tilemaps.TilemapLayer;
 
     gameText: Phaser.GameObjects.Text;
@@ -37,13 +39,13 @@ export class Game extends Scene
     {
       this.camera = this.cameras.main;
 
-      const map = this.make.tilemap({ key: GAME_CONFIG.TILEMAP_KEY });
+      this.map = this.make.tilemap({ key: GAME_CONFIG.TILEMAP_KEY });
 
-      const tileset = map.addTilesetImage(GAME_CONFIG.TILESET_KEY, GAME_CONFIG.TILESET_IMAGE_KEY); // name must match what's in Tiled
-      const floorLayer = map.createLayer('floor', tileset!, 0, 0)!;
+      const tileset = this.map.addTilesetImage(GAME_CONFIG.TILESET_KEY, GAME_CONFIG.TILESET_IMAGE_KEY); // name must match what's in Tiled
+      const floorLayer = this.map.createLayer('floor', tileset!, 0, 0)!;
       floorLayer.name = 'floor';
       
-      this.collidablesLayer = map.createLayer('collidables', tileset!, 0, 0)!;
+      this.collidablesLayer = this.map.createLayer('collidables', tileset!, 0, 0)!;
       this.collidablesLayer.name = 'collidables';
       this.collidablesLayer.setCollisionByProperty({ collides: true });
 
@@ -59,7 +61,7 @@ export class Game extends Scene
 
       this.destinations = findDestinationsInLayer(this.collidablesLayer);
 
-      const pathFinder = new PathFinder(map, this.collidablesLayer);       
+      const pathFinder = new PathFinder(this.map, this.collidablesLayer);       
 
       this.passengers = this.add.group({
         classType: Passenger,
@@ -126,7 +128,8 @@ export class Game extends Scene
           has_electronics: true,
           has_liquids: true,
           has_suspicious_item: true
-        }
+        },
+        onPerson: true
       });
       
       const newPassenger = new Passenger(this, spawnX, spawnY, passengerData.sprite, {

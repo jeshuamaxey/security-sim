@@ -1,4 +1,7 @@
 type BagConfig = {
+  onPerson?: boolean;
+  onConveyor?: boolean;
+
   contents: {
     has_electronics?: boolean;
     has_liquids?: boolean;
@@ -8,6 +11,9 @@ type BagConfig = {
 
 class Bag extends Phaser.Physics.Arcade.Sprite {
   public sprite: Phaser.GameObjects.Sprite;
+
+  public onPerson: boolean;
+  public onConveyor: boolean;
   public is_flagged: boolean; // Whether the bag has been flagged for inspection
   
   public contents: {
@@ -28,6 +34,17 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
     // physics body
     scene.add.existing(this);
     scene.physics.world.enable(this);
+
+    if(config.onPerson) {
+      this.onPerson = true;
+      this.onConveyor = false;
+    } else if(config.onConveyor) {
+      this.onPerson = false;
+      this.onConveyor = true;
+    } else {
+      this.onPerson = false;
+      this.onConveyor = false;
+    }
     
     this.is_flagged = false;
 
