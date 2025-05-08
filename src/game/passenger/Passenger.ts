@@ -85,14 +85,14 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     // account for empty space at the top of sprite images
     this.body.setSize(16, 24);
     this.body.setOffset(0, 8);
-    this.setOrigin(0.5, 0.8);
+    this.setOrigin(PASSENGER.ORIGIN_X, PASSENGER.ORIGIN_Y);
     
     // setup physics behaviour
     this.setPushable(false);
     this.setImmovable(true);
     this.body.setBounce(0);
     this.body.setCollideWorldBounds(true);
-    
+
     this.body.debugBodyColor = 0x0000ff;
     
     // ANIMATIONS
@@ -246,7 +246,9 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     if(!this.currentTask.inProgress) {
       this.pLog(`beginning move task: "${this.currentTask.name}"`);
       this.pLog(`currentTask.destination: ${JSON.stringify(this.currentTask.destination, null, 2)}`, 'log');
-      const startPosition = { x: this.x, y: this.y };
+      const safeX = Phaser.Math.Clamp(this.x, 0, this.pathFinder.tilemap.widthInPixels - 1);
+      const safeY = Phaser.Math.Clamp(this.y, 0, this.pathFinder.tilemap.heightInPixels - 1);
+      const startPosition = { x: safeX, y: safeY };
       const startTile = { x: this.pathFinder.tilemap.worldToTileX(startPosition.x), y: this.pathFinder.tilemap.worldToTileY(startPosition.y) };
       if(startTile.x === null || startTile.y === null) {
         throw new Error('Invalid start tile coordinates');

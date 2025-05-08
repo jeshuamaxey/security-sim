@@ -10,4 +10,6 @@ export const GAME_CONFIG = {
   TILESET_KEY: 'airport-dev',
   TILESET_PATH: 'tilemaps/v3.png',
   TILESET_IMAGE_KEY: 'airport-tilemap-image',
+
+  TILE_SIZE: 32,
 }

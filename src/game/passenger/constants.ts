@@ -3,6 +3,9 @@ export const PASSENGER = {
   HEIGHT: 32,
   WIDTH: 32,
 
+  ORIGIN_X: 0.5,
+  ORIGIN_Y: 0.8,
+
   SPAWN_RADIUS: 100,
 
   WAYPOINT_TOLERANCE: 10,

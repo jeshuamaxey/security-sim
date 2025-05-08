@@ -23,10 +23,15 @@ export class PathFinder {
   public tilemap: Phaser.Tilemaps.Tilemap;
   private aStar: AStarFinder;
   private grid: number[][];
+  private gridWidth: number;
+  private gridHeight: number;
 
   constructor(tilemap: Phaser.Tilemaps.Tilemap, layer: Phaser.Tilemaps.TilemapLayer) {
     this.tilemap = tilemap;
     this.grid = getTilemapMatrix(layer);
+    this.gridWidth = this.grid[0].length;
+    this.gridHeight = this.grid.length;
+
     this.aStar = new AStarFinder({
       grid: { matrix: this.grid },
       diagonalAllowed: false
@@ -40,6 +45,19 @@ export class PathFinder {
    * @returns The path between the two points in tile coordinates
    */
   findPathInTileCoords(start: TaskDestination, end: TaskDestination) {
+    const isWithinBounds = (x: number, y: number) =>
+      x >= 0 && y >= 0 && x < this.gridWidth && y < this.gridHeight;
+
+
+      if (
+        !isWithinBounds(start.tileX, start.tileY) ||
+        !isWithinBounds(end.tileX, end.tileY)
+      ) {
+        console.warn('Pathfinding attempted out of bounds', start, end);
+        return [];
+      }
+
+
     const path = this.aStar.findPath(
       { x: start.tileX, y: start.tileY },
       { x: end.tileX, y: end.tileY }
