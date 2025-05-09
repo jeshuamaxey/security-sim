@@ -7,12 +7,12 @@ import getPassengerTasks, { TaskDestinationMap } from '../tasks/tasks';
 import { GAME_CONFIG } from '../config';
 import Bag from '../bag/Bag';
 import BaseScene from './BaseScene';
-
+import MapStore from '../store';
 const DEBUG_TILES = false;
 export class Game extends BaseScene
 {
     map: Phaser.Tilemaps.Tilemap;
-    collidablesLayer: Phaser.Tilemaps.TilemapLayer;
+    collidablesLayer: Phaser.Tilemaps.TilemapLayer | null;
 
     passengers: Phaser.GameObjects.Group;
     bags: Phaser.GameObjects.Group;
@@ -43,14 +43,56 @@ export class Game extends BaseScene
 
       this.score = 0;
 
-      this.map = this.make.tilemap({ key: GAME_CONFIG.TILEMAP_KEY });
+      const mapStore = MapStore.load();
 
-      const tileset = this.map.addTilesetImage(GAME_CONFIG.TILESET_KEY, GAME_CONFIG.TILESET_IMAGE_KEY); // name must match what's in Tiled
-      const floorLayer = this.map.createLayer('floor', tileset!, 0, 0)!;
-      floorLayer.name = 'floor';
+      if(!mapStore) {
+        console.error('Failed to load map from store');
+        return;
+      }
+
+      this.map = this.make.tilemap({
+        tileWidth: mapStore.tileSize,
+        tileHeight: mapStore.tileSize,
+        width: GAME_CONFIG.MAP_WIDTH,
+        height: GAME_CONFIG.MAP_HEIGHT
+      });
+
+      const tileset = this.map.addTilesetImage(GAME_CONFIG.TILESET_KEY, GAME_CONFIG.TILESET_IMAGE_KEY, GAME_CONFIG.TILE_SIZE, GAME_CONFIG.TILE_SIZE, 0, 0); // name must match what's in Tiled
+
+      console.log('Tileset:', tileset);
+
+      if(!tileset) {
+        console.error('Failed to create tileset');
+        return;
+      }
+
+      const floorLayer = this.map.createBlankLayer('floor', tileset, 0, 0, GAME_CONFIG.MAP_WIDTH, GAME_CONFIG.MAP_HEIGHT, GAME_CONFIG.TILE_SIZE, GAME_CONFIG.TILE_SIZE);
+
+      if(!floorLayer) {
+        console.error('Failed to create floor layer');
+        return;
+      }
+
+      console.log('loading map from store', mapStore);
+      console.log('Tileset keys:', this.textures.getTextureKeys());
       
-      this.collidablesLayer = this.map.createLayer('collidables', tileset!, 0, 0)!;
-      this.collidablesLayer.name = 'collidables';
+      this.collidablesLayer = this.map.createBlankLayer('collidables', tileset, 0, 0);
+
+      if(!this.collidablesLayer) {
+        console.error('Failed to create collidables layer');
+        return;
+      }
+
+      console.table(mapStore.layerIndices);
+
+      mapStore.layerIndices.forEach((row, y) => {
+        row.forEach((tileIndex, x) => {
+          if (tileIndex !== -1) {
+            this.collidablesLayer?.putTileAt(tileIndex, x, y);
+          }
+        });
+      });
+
       this.collidablesLayer.setCollisionByProperty({ collides: true });
 
       this.gameContainer.add(floorLayer);
@@ -71,7 +113,7 @@ export class Game extends BaseScene
         });
       }
 
-      this.destinations = findDestinationsInLayer(this.collidablesLayer);
+      // this.destinations = findDestinationsInLayer(this.collidablesLayer);
 
       this.pathFinder = new PathFinder(this.map, this.collidablesLayer);
 

@@ -17,7 +17,7 @@ export class MainMenu extends Scene
     create ()
     {
         console.warn('jmping straight into game for dev');
-        this.scene.start('Game');
+        this.scene.start('MapEditor');
         return;
 
         this.background = this.add.image(512, 384, 'background');

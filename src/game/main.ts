@@ -6,6 +6,8 @@ import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
 import { PASSENGER } from './passenger/constants';
 import { GAME_CONFIG } from './config';
+import { MapEditor } from './scenes/MapEditor';
+
 export const SIZE = {
   WIDTH: 1024,
   HEIGHT: 768,
@@ -35,7 +37,8 @@ const config: Phaser.Types.Core.GameConfig = {
     Preloader,
     MainMenu,
     MainGame,
-    GameOver
+    GameOver,
+    MapEditor
   ]
 };
 

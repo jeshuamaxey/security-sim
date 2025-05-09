@@ -1,5 +1,6 @@
 import { AStarFinder } from "astar-typescript";
 import { TaskDestination, TaskDestinationMap } from "../tasks/tasks";
+import { GAME_CONFIG } from "../config";
 
 const getTilemapMatrix = (layer: Phaser.Tilemaps.TilemapLayer) => {
   const grid: number[][] = [];
@@ -139,4 +140,39 @@ export const findDestinationsInLayer = (tilemapLayer: Phaser.Tilemaps.TilemapLay
   };
 
   return destinations;
+}
+
+export class TilemapUtils {
+  private scene: Phaser.Scene;
+  private gridWidth: number;
+  private gridHeight: number;
+
+  constructor(scene: Phaser.Scene) {
+    this.scene = scene;
+    this.gridWidth = GAME_CONFIG.MAP_WIDTH;
+    this.gridHeight = GAME_CONFIG.MAP_HEIGHT;
+  }
+
+  createNewTilemap() {
+    const tilemap = this.scene.make.tilemap({
+      width: this.gridWidth,
+      height: this.gridHeight,
+      tileWidth: GAME_CONFIG.TILE_SIZE,
+      tileHeight: GAME_CONFIG.TILE_SIZE
+    });
+
+    return tilemap;
+  }
+
+  // createNewTilemapLayer(tilemap: Phaser.Tilemaps.Tilemap, name: string) {
+  //   const layer = tilemap.createBlankLayer(name, tileset, 0, 0, GAME_CONFIG.MAP_WIDTH, GAME_CONFIG.MAP_HEIGHT, GAME_CONFIG.TILE_SIZE, GAME_CONFIG.TILE_SIZE);
+  // }
+
+  createNewTilemapTileset(tilemap: Phaser.Tilemaps.Tilemap, name: string) {
+    const tileset = tilemap.addTilesetImage(GAME_CONFIG.TILESET_KEY, GAME_CONFIG.TILESET_IMAGE_KEY);
+    if (!tileset) {
+      throw new Error('Failed to load tileset');
+    }
+    return tileset;
+  }
 }

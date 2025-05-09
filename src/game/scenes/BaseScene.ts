@@ -1,5 +1,6 @@
 import { SIZE } from "../main";
 import { GAME_CONFIG } from "../config";
+import { TilemapUtils } from "../utils/tilemaps";
 export default class BaseScene extends Phaser.Scene {
   gameCamera: Phaser.Cameras.Scene2D.Camera;
   uiCamera: Phaser.Cameras.Scene2D.Camera;
@@ -10,12 +11,14 @@ export default class BaseScene extends Phaser.Scene {
   gameAreaWidth: number;
   gameAreaHeight: number;
 
+  tilemapUtils: TilemapUtils;
+
   constructor(config: Phaser.Types.Scenes.SettingsConfig) {
     super(config);
+    this.tilemapUtils = new TilemapUtils(this);
   }
 
   createBaseLayout() {
-    const aspectRatio = SIZE.HEIGHT / SIZE.WIDTH;
     const screenWidth = this.scale.width;
     const screenHeight = this.scale.height;
 

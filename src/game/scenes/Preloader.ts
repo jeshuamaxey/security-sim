@@ -38,6 +38,7 @@ export class Preloader extends Scene
 
         this.load.tilemapTiledJSON(GAME_CONFIG.TILEMAP_KEY, GAME_CONFIG.TILEMAP_PATH);
         this.load.image(GAME_CONFIG.TILESET_IMAGE_KEY, GAME_CONFIG.TILESET_PATH);
+        this.load.spritesheet(GAME_CONFIG.TILESET_SPRITESHEET_KEY, GAME_CONFIG.TILESET_PATH, { frameWidth: GAME_CONFIG.TILE_SIZE, frameHeight: GAME_CONFIG.TILE_SIZE });
 
         this.load.image('bag', 'spritesheets/bag.png');
       }
