@@ -1,6 +1,7 @@
 import { AStarFinder } from "astar-typescript";
 import { TaskDestination, TaskDestinationMap } from "../tasks/tasks";
 import { GAME_CONFIG } from "../config";
+import BaseScene from "../scenes/BaseScene";
 
 const getTilemapMatrix = (layer: Phaser.Tilemaps.TilemapLayer) => {
   const grid: number[][] = [];
@@ -99,14 +100,14 @@ type TileCacheObject = {
 export type TilePropertiesMap = { [key: number]: { [key: string]: string } };
 
 export class TilemapUtils {
-  private scene: Phaser.Scene;
+  private scene: BaseScene;
   private gridWidth: number;
   private gridHeight: number;
 
   private tiles: TileCacheObject[];
   private _tileProperties: TilePropertiesMap;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: BaseScene) {
     this.scene = scene;
     this.gridWidth = GAME_CONFIG.MAP_WIDTH;
     this.gridHeight = GAME_CONFIG.MAP_HEIGHT;
@@ -131,6 +132,14 @@ export class TilemapUtils {
       this.loadTileProperties();
     }
     return this._tileProperties;
+  }
+
+  fitCameraToMap(map: Phaser.Tilemaps.Tilemap) {
+    const worldWidth = map.widthInPixels;
+    const worldHeight = map.heightInPixels;
+
+    this.scene.fitCameraToWorld(worldWidth, worldHeight);
+    this.scene.gameCamera.centerOn(worldWidth / 2, worldHeight / 2);
   }
 
   createNewTilemap() {

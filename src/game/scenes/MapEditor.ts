@@ -43,16 +43,14 @@ export class MapEditor extends BaseScene {
         });
       });
     }
-
-
-    console.log('editableLayer dimensions', this.editableLayer.layer.width, this.editableLayer.layer.height);
-    console.log('floorLayer dimensions', this.floorLayer.layer.width, this.floorLayer.layer.height);
     
     this.editableLayer.setVisible(true);
     this.editableLayer.setInteractive();
 
     this.gameContainer.add(this.floorLayer);
     this.gameContainer.add(this.editableLayer);
+
+    this.tilemapUtils.fitCameraToMap(this.map);
 
     this.getTileAtPointer = (pointer: Phaser.Input.Pointer) => {
       // Convert pointer position to layer-local coordinates

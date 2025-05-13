@@ -85,19 +85,12 @@ export class Game extends BaseScene
 
       this.collidablesLayer.setCollisionByProperty({ collides: true });
 
-      console.log('collidablesLayer dimensions', this.collidablesLayer.layer.width, this.collidablesLayer.layer.height);
-      console.log('floorLayer dimensions', floorLayer.layer.width, floorLayer.layer.height);
-
       this.tilemapUtils.enableTileClickLogging(this.collidablesLayer);
 
       this.gameContainer.add(floorLayer);
       this.gameContainer.add(this.collidablesLayer);
 
-      const worldWidth = this.map.widthInPixels;
-      const worldHeight = this.map.heightInPixels;
-
-      this.fitCameraToWorld(worldWidth, worldHeight);
-      this.gameCamera.centerOn(worldWidth / 2, worldHeight / 2);
+      this.tilemapUtils.fitCameraToMap(this.map);
 
       if(DEBUG_TILES) {
         const debugGraphics = this.add.graphics().setAlpha(0.75);
