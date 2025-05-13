@@ -7,7 +7,7 @@ export class MapEditor extends BaseScene {
   editableLayer: Phaser.Tilemaps.TilemapLayer;
   floorLayer: Phaser.Tilemaps.TilemapLayer;
   selectedTileIndex: number = 1; // Default tile to paint
-  requiredTypes = ['body_scanner','bag_dropoff_passenger_bag'];
+  requiredTypes = ['body_scanner','bag_dropoff_passenger_bay','bag_pickup_passenger_bay','gate'];
 
   getTileAtPointer: (pointer: Phaser.Input.Pointer) => { tileX: number, tileY: number };
 
@@ -19,32 +19,41 @@ export class MapEditor extends BaseScene {
     }
 
   create() {
+    super.create();
+
     this.createBaseLayout();
 
+    const mapStore = MapStore.load();
+
     // Create the tilemap with the correct dimensions
-    this.map = this.make.tilemap({ 
-      width: GAME_CONFIG.MAP_WIDTH, 
-      height: GAME_CONFIG.MAP_HEIGHT,
-      tileWidth: GAME_CONFIG.TILE_SIZE, 
-      tileHeight: GAME_CONFIG.TILE_SIZE 
-    });
-    const tileset = this.map.addTilesetImage(GAME_CONFIG.TILESET_KEY, GAME_CONFIG.TILESET_IMAGE_KEY);
-    if (!tileset) {
-      console.error('Failed to load tileset');
-      return;
-    }
+    this.map = this.tilemapUtils.createNewTilemap();
+    const tileset = this.tilemapUtils.createNewTilemapTileset(this.map, 'airport-tilemap-spritesheet');
 
     // Create the floor layer
-    this.floorLayer = this.map.createBlankLayer('floor', tileset, 0, 0, GAME_CONFIG.MAP_WIDTH, GAME_CONFIG.MAP_HEIGHT)!;
-    this.floorLayer.fill(0);
+    this.floorLayer = this.tilemapUtils.createFloorLayer(this.map, tileset);
     
     // Create the editable layer
-    this.editableLayer = this.map.createBlankLayer('editable', tileset, 0, 0, GAME_CONFIG.MAP_WIDTH, GAME_CONFIG.MAP_HEIGHT)!;
+    this.editableLayer = this.tilemapUtils.createNewTilemapLayer(this.map, 'editable', tileset);
+    if(mapStore) {
+      mapStore.layerIndices.forEach((row, y) => {
+        row.forEach((tileIndex, x) => {
+          if (tileIndex !== -1) {
+            this.editableLayer?.putTileAt(tileIndex, x, y);
+          }
+        });
+      });
+    }
+
+
+    console.log('editableLayer dimensions', this.editableLayer.layer.width, this.editableLayer.layer.height);
+    console.log('floorLayer dimensions', this.floorLayer.layer.width, this.floorLayer.layer.height);
+    
     this.editableLayer.setVisible(true);
     this.editableLayer.setInteractive();
 
     this.gameContainer.add(this.floorLayer);
     this.gameContainer.add(this.editableLayer);
+
     this.getTileAtPointer = (pointer: Phaser.Input.Pointer) => {
       // Convert pointer position to layer-local coordinates
       const localX = (pointer.worldX)
@@ -103,26 +112,15 @@ export class MapEditor extends BaseScene {
     }
   }
 
-  validateMap(): boolean {
-    console.warn("skipping map validation");
-    return true;
-    
-    const tiles = this.editableLayer.getTilesWithin(0, 0, this.map.width, this.map.height);
-    for (const requiredType of this.requiredTypes) {
-      if (!tiles.some(t => t.properties?.destinationKey === requiredType)) {
-        alert(`Map missing required tile: ${requiredType}`);
-        return false;
-      }
-    }
-    return true;
-  }
-
   saveMap(): void {
-    if (!this.validateMap()) return;
+    const { valid, missingTiles } = this.tilemapUtils.validateEditableLayer(this.editableLayer, this.requiredTypes);
+    if(!valid) {
+      alert(`Map is missing required tiles: ${missingTiles.join(', ')}`);
+      return;
+    }
 
-    const layer = this.map.getLayer('editable');
-    const layerIndices = layer?.data.map(row =>
-      row.map(tile => tile.index)
+    const layerIndices = this.editableLayer.layer.data.map((row: Phaser.Tilemaps.Tile[]) =>
+      row.map((tile: Phaser.Tilemaps.Tile) => tile.index)
     )
 
     if(!layerIndices) {
@@ -146,8 +144,8 @@ export class MapEditor extends BaseScene {
     this.tilePalette = this.add.group();
 
     tileIndices.forEach((index, i) => {
-      const width = GAME_CONFIG.MAP_WIDTH;
-      const height = GAME_CONFIG.MAP_HEIGHT;
+      const width = GAME_CONFIG.TILE_SIZE;
+      const height = GAME_CONFIG.TILE_SIZE;
       const tilesPerRow = 2;
 
       const rowN = 1 + Math.floor(i / tilesPerRow);

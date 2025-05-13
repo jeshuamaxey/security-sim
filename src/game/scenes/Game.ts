@@ -1,7 +1,7 @@
 import { EventBus } from '../EventBus';
 import { passengers, SIZE } from '../main';
 import Passenger, { PassengerTask, PassengerTexture } from '../passenger/Passenger';
-import { findDestinationsInLayer, PathFinder } from '../utils/tilemaps';
+import { PathFinder } from '../utils/tilemaps';
 import { PASSENGER } from '../passenger/constants';
 import getPassengerTasks, { TaskDestinationMap } from '../tasks/tasks';
 import { GAME_CONFIG } from '../config';
@@ -50,32 +50,18 @@ export class Game extends BaseScene
         return;
       }
 
-      this.map = this.make.tilemap({
-        tileWidth: mapStore.tileSize,
-        tileHeight: mapStore.tileSize,
-        width: GAME_CONFIG.MAP_WIDTH,
-        height: GAME_CONFIG.MAP_HEIGHT
-      });
+      this.map = this.tilemapUtils.createNewTilemap();
 
       const tileset = this.map.addTilesetImage(GAME_CONFIG.TILESET_KEY, GAME_CONFIG.TILESET_IMAGE_KEY, GAME_CONFIG.TILE_SIZE, GAME_CONFIG.TILE_SIZE, 0, 0); // name must match what's in Tiled
-
-      console.log('Tileset:', tileset);
 
       if(!tileset) {
         console.error('Failed to create tileset');
         return;
       }
-
-      const floorLayer = this.map.createBlankLayer('floor', tileset, 0, 0, GAME_CONFIG.MAP_WIDTH, GAME_CONFIG.MAP_HEIGHT, GAME_CONFIG.TILE_SIZE, GAME_CONFIG.TILE_SIZE);
-
-      if(!floorLayer) {
-        console.error('Failed to create floor layer');
-        return;
-      }
-
-      console.log('loading map from store', mapStore);
-      console.log('Tileset keys:', this.textures.getTextureKeys());
       
+      const floorLayer = this.tilemapUtils.createFloorLayer(this.map, tileset);
+      
+      // create the collidables layer and assign tile properties
       this.collidablesLayer = this.map.createBlankLayer('collidables', tileset, 0, 0);
 
       if(!this.collidablesLayer) {
@@ -83,17 +69,26 @@ export class Game extends BaseScene
         return;
       }
 
-      console.table(mapStore.layerIndices);
-
       mapStore.layerIndices.forEach((row, y) => {
         row.forEach((tileIndex, x) => {
           if (tileIndex !== -1) {
-            this.collidablesLayer?.putTileAt(tileIndex, x, y);
+            const tile = this.collidablesLayer?.putTileAt(tileIndex, x, y);
+
+            const props = this.tilemapUtils.tileProperties?.[tileIndex];
+
+            if(tile && props) {
+              tile.properties = {...props};
+            }
           }
         });
       });
 
       this.collidablesLayer.setCollisionByProperty({ collides: true });
+
+      console.log('collidablesLayer dimensions', this.collidablesLayer.layer.width, this.collidablesLayer.layer.height);
+      console.log('floorLayer dimensions', floorLayer.layer.width, floorLayer.layer.height);
+
+      this.tilemapUtils.enableTileClickLogging(this.collidablesLayer);
 
       this.gameContainer.add(floorLayer);
       this.gameContainer.add(this.collidablesLayer);
@@ -113,7 +108,7 @@ export class Game extends BaseScene
         });
       }
 
-      // this.destinations = findDestinationsInLayer(this.collidablesLayer);
+      this.destinations = this.tilemapUtils.findDestinationsInLayer(this.collidablesLayer);
 
       this.pathFinder = new PathFinder(this.map, this.collidablesLayer);
 

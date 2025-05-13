@@ -16,3 +16,16 @@ export const PASSENGER = {
 export const BAG = {
   CONVEYOR_SPEED: 100,
 }
+
+export const DESTINATION_KEYS = {
+  BAG_DROP_OFF_PASSENGER_BAY: 'bag_dropoff_passenger_bay',
+  BAG_CONVEYOR: 'bag_conveyor',
+  
+  BODY_SCANNER: 'body_scanner',
+  BAG_SCANNER: 'bag_scanner',
+  
+  BAG_PICKUP_PASSENGER_BAY: 'bag_pickup_passenger_bay',
+  BAG_PICKUP: 'bag_pickup',
+  
+  GATE: 'gate',
+}

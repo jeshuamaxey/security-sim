@@ -1,6 +1,6 @@
 import Passenger, { PassengerTask } from "../passenger/Passenger";
 import { Game } from "../scenes/Game";
-
+import { DESTINATION_KEYS } from "../passenger/constants";
 const actionUnloadBag = (): PassengerTask => {
   return {
     name: 'unload bag',
@@ -16,17 +16,24 @@ const actionUnloadBag = (): PassengerTask => {
         return;
       }
 
-      let bagConveyorTiles = scene.collidablesLayer.getTilesWithin(
+      let localTiles = scene.collidablesLayer?.getTilesWithin(
         passengerTileX - searchRadius, 
         passengerTileY - searchRadius, 
-        searchRadius*2, 
-        searchRadius*2
+        searchRadius*2+1, 
+        searchRadius*2+1,
+        { isNotEmpty: true }
       );
 
-      const bagConveyorTile = bagConveyorTiles.find((tile: any) => tile.properties.destinationKey === 'bag_conveyor');
+      if(!localTiles) {
+        console.error('no bag conveyor tiles found');
+        return;
+      }
+
+      const bagConveyorTiles = localTiles.filter((tile: any) => tile.properties.destinationKey === DESTINATION_KEYS.BAG_CONVEYOR);
+      const bagConveyorTile = scene.tilemapUtils.findClosestTile({ x: passenger.x, y: passenger.y }, bagConveyorTiles);
 
       if(!bagConveyorTile) {
-        console.warn('no bag conveyor tile found');
+        console.error('no bag conveyor tile found');
         return;
       }
 
@@ -35,7 +42,7 @@ const actionUnloadBag = (): PassengerTask => {
 
       scene.time.delayedCall(2000, () => {
         if(!passenger.bag) {
-          console.warn('no bag to unload');
+          console.error('no bag to unload');
           return;
         }
 

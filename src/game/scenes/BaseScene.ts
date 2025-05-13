@@ -18,6 +18,10 @@ export default class BaseScene extends Phaser.Scene {
     this.tilemapUtils = new TilemapUtils(this);
   }
 
+  create() {
+    this.tilemapUtils.loadTileProperties();
+  }
+
   createBaseLayout() {
     const screenWidth = this.scale.width;
     const screenHeight = this.scale.height;
@@ -71,8 +75,7 @@ export default class BaseScene extends Phaser.Scene {
     } catch (err) {
       console.error(`[${this.scene.key}] Error in setupUI():`, err);
     }
-  }
-  
+  } 
 
   setupUI() {
     console.log('BaseScene setupUI');
