@@ -183,8 +183,6 @@ export class TilemapUtils {
 
     const tiles = layer.getTilesWithin(0, 0, this.gridWidth, this.gridHeight);
 
-    console.log(this._tileProperties);
-
     const tilesUsed: string[] = tiles.reduce((acc: string[], tile: Phaser.Tilemaps.Tile) => {
       const tileProps = this._tileProperties[tile.index];
       if(tileProps && tileProps.destinationKey && !acc.includes(tileProps.destinationKey)) {
@@ -192,9 +190,6 @@ export class TilemapUtils {
       }
       return acc;
     }, []);
-
-    console.log('tilesUsed', tilesUsed);
-
     const missingTiles = requiredTypes.filter((type) => !tilesUsed.includes(type));
 
     return { valid: missingTiles.length === 0, missingTiles };

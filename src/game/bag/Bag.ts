@@ -85,6 +85,13 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
 
   update(time: number, delta: number) {
     super.update(time, delta);
+
+    if(!this.game.collidablesLayer) {
+      console.warn('no collidables layer found for bag');
+      this.setVelocity(0, 0);
+      return;
+    }
+
     this.currentTile = this.game.collidablesLayer.getTileAtWorldXY(this.x, this.y);
 
     if(!this.currentTile && !this.onPerson) {

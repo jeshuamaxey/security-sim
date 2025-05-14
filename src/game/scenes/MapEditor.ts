@@ -1,5 +1,5 @@
 import { GAME_CONFIG } from "../config";
-import MapStore from "../store";
+import MapStore from "../store/map";
 import BaseScene from "./BaseScene";
 
 export class MapEditor extends BaseScene {

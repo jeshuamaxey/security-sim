@@ -55,10 +55,15 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   public pathInWorldCoords?: Vector2Like[];
   public movingToDestination: boolean;
   public currentStepInPath: number;
-  private checkArrivedAtWaypoint: Phaser.Time.TimerEvent;
+  private checkArrivedAtWaypoint: Phaser.Time.TimerEvent | null = null;
 
   public lastPassengerCollidedWith?: Passenger;
   private lastCollisionTimeout?: Phaser.Time.TimerEvent;
+
+  private wasMovingBeforePause: boolean = false;
+  private paused: boolean = false;
+  private awaitingWaypointCheck: boolean = false;
+
 
   public bag?: Bag;
 
@@ -153,7 +158,7 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     } else if (!this.securityCompleteTimer && !this.markedForDestroy) {
       // Only create the timer once when we run out of tasks
       this.securityCompleteTimer = this.scene.time.addEvent({
-        delay: 5000,
+        delay: 500,
         callback: () => {
           this.onArrivedAtAirside();
           this.markForDestroy();
@@ -184,6 +189,71 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       this.bag?.destroy();
       this.destroy();
     }
+  }
+
+  /**
+   * Pause all passenger updates (used when the game is paused)
+   */
+  public pause() {
+    this.paused = true;
+
+    this.wasMovingBeforePause = this.movingToDestination;
+    this.body.setVelocity(0);
+    this.stopWalkingAnimation();
+  
+    if (this.checkArrivedAtWaypoint) {
+      this.checkArrivedAtWaypoint.remove(false); // do not destroy immediately
+      this.checkArrivedAtWaypoint = null;
+    }
+  
+    if (this.securityCompleteTimer) {
+      this.securityCompleteTimer.paused = true;
+    }
+  }
+  
+  /**
+   * Resume all passenger updates (used when the game is resumed)
+   */
+  public resume() {
+    this.pLog('Resuming passenger', 'log');
+
+    this.paused = false;
+    this.movingToDestination = false;
+  
+    if (this.checkArrivedAtWaypoint && this.awaitingWaypointCheck) {
+      this.pLog('Resuming checkArrivedAtWaypoint', 'log');
+      this.checkArrivedAtWaypoint.paused = false;
+      this.awaitingWaypointCheck = false;
+      return;
+    }
+  
+    // If no timer is running but we're still mid-path, resume from current point
+    if (
+      this.currentTask?.type === 'move' &&
+      this.currentTask.inProgress &&
+      this.pathInWorldCoords?.length &&
+      !this.movingToDestination &&
+      !this.impeded
+    ) {
+      this.pLog('Resuming movement from current step', 'log');
+      this.movingToDestination = false;
+      this.resumeFromCurrentStep();
+    } else if (
+      this.currentTask?.type === 'move' &&
+      !this.currentTask.inProgress
+    ) {
+      this.pLog('Resuming move task that never started', 'log');
+      this.updateMoveTask(); // This will set path, mark inProgress=true, and start movement
+    }
+  
+    if (this.securityCompleteTimer) {
+      this.securityCompleteTimer.paused = false;
+    }
+  }  
+
+  private resumeFromCurrentStep() {
+    this.pLog(`Resuming movement from step ${this.currentStepInPath}`, 'log');
+    this.moveAlongPathWithPhysics(this.pathInWorldCoords!, this.speed);
   }
 
   private drawPath(pathInWorldCoords: Vector2Like[]) {
@@ -468,9 +538,18 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
       // Safety check to prevent invalid step counts
       this.currentStepInPath = Math.min(this.currentStepInPath, worldPath.length);
 
-      if (this.currentStepInPath >= worldPath.length) {
+      if (
+        this.paused ||
+        !worldPath ||
+        this.currentStepInPath >= worldPath.length ||
+        !worldPath[this.currentStepInPath]
+      ) {
+        if (this.paused) {
+          this.pLog('Paused mid-path — skip arrival', 'log');
+          return;
+        }
+      
         this.pLog(`arrivedAtDestination()`, 'log');
-
         this.body.setVelocity(0);
         this.arrivedAtDestination();
         return;
@@ -511,6 +590,8 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
         delay: 10,
         loop: true,
         callback: () => {
+          if(!this.checkArrivedAtWaypoint) return;
+
           if (this.impeded) {
             this.checkArrivedAtWaypoint.remove();
             this.pauseMovingAlongPath();
@@ -537,6 +618,9 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     moveToNextTile();
   }
 
+  /**
+   * Pause the passenger from moving along the path, usually because there's an impediment in the way
+   */
   pauseMovingAlongPath() {
     this.body.setVelocity(0);
     this.stopWalkingAnimation();
@@ -571,7 +655,7 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   arrivedAtDestination() {
     this.stopWalkingAnimation();
 
-    this.checkArrivedAtWaypoint.remove();
+    this.checkArrivedAtWaypoint?.remove();
 
     this.movingToDestination = false;
     this.pathInWorldCoords = undefined;
@@ -586,7 +670,7 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
     this.moveToNextTask();
   }
 
- public moveToNextTask() {
+  public moveToNextTask() {
     this.pLog('moveToNextTask()', 'log');
     this._currentTaskIndex++;
   }

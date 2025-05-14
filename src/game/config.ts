@@ -1,7 +1,4 @@
 export const GAME_CONFIG = {
-  AUTO_SPAWN: false,
-  SPAWN_RATE: 0.33,
-
   SCALE: 2,
 
   TILEMAP_KEY: 'airport',

@@ -1,5 +1,5 @@
-import { EventBus } from '../EventBus';
-import { passengers, SIZE } from '../main';
+
+import { passengers } from '../main';
 import Passenger, { PassengerTask, PassengerTexture } from '../passenger/Passenger';
 import { PathFinder } from '../utils/tilemaps';
 import { PASSENGER } from '../passenger/constants';
@@ -7,15 +7,33 @@ import getPassengerTasks, { TaskDestinationMap } from '../tasks/tasks';
 import { GAME_CONFIG } from '../config';
 import Bag from '../bag/Bag';
 import BaseScene from './BaseScene';
-import MapStore from '../store';
+import MapStore from '../store/map';
+import LevelProgressStore, { LevelScore } from '../store/levelProgress';
+import LEVELS, { LevelConfig } from '../levels';
+
 const DEBUG_TILES = false;
 export class Game extends BaseScene
 {
     map: Phaser.Tilemaps.Tilemap;
     collidablesLayer: Phaser.Tilemaps.TilemapLayer | null;
 
+    currentLevel: LevelConfig;
+    spawnedPassengerCount: number;
+    processedPassengerCount: number;
+    suspiciousItemsPassed: number;
+    spawnTimer: Phaser.Time.TimerEvent;
+
+    levelStartTime: number;
+    levelStarted: boolean;
+    levelCompleted: boolean;
+
+    isPaused: boolean = false;
+    pauseStartTime: number | null = null;
+    pauseOffset: number = 0; // time paused (in ms)
+
     passengers: Phaser.GameObjects.Group;
     bags: Phaser.GameObjects.Group;
+    focusPassenger: Passenger | null;
 
     pathFinder: PathFinder;
 
@@ -25,9 +43,8 @@ export class Game extends BaseScene
     passengerListText: Phaser.GameObjects.Text;
     focusPassengerDetails: Phaser.GameObjects.Text;
     scoreText: Phaser.GameObjects.Text;
-    focusPassenger: Passenger | null;
-
-    score: number;
+    timerText: Phaser.GameObjects.Text;
+    pauseButton: Phaser.GameObjects.Text;
 
     destinations: TaskDestinationMap;
     passengerTasks: PassengerTask[];
@@ -39,9 +56,18 @@ export class Game extends BaseScene
 
     create ()
     {
-      this.createBaseLayout();
+      // LEVEL
+      const level = LevelProgressStore.getNextIncompleteLevel(LEVELS);
+      if (!level) {
+        console.warn('No levels remaining!');
+        return;
+      }
+      
+      this.currentLevel = level;
 
-      this.score = 0;
+      
+      // LAYER CREATION
+      this.createBaseLayout();
 
       const mapStore = MapStore.load();
 
@@ -116,25 +142,171 @@ export class Game extends BaseScene
         maxSize: 100,
         runChildUpdate: true
       });
-      
-      // spawn passengers every 3 seconds
-      if(GAME_CONFIG.AUTO_SPAWN) {
-        this.time.addEvent({
-          delay: 1000 / GAME_CONFIG.SPAWN_RATE,
+
+      this.showPreGameModal(this.currentLevel);
+    }
+
+    showPreGameModal(level: LevelConfig) {
+      const modal = this.add.container(0, 0).setScrollFactor(0);
+      const bg = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.7)
+        .setOrigin(0)
+        .setInteractive();
+    
+      const title = this.add.text(this.scale.width / 2, 100, level.name, {
+        fontSize: '32px',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+    
+      const description = this.add.text(this.scale.width / 2, 160, level.description || '', {
+        fontSize: '18px',
+        color: '#dddddd',
+        wordWrap: { width: this.scale.width * 0.8 }
+      }).setOrigin(0.5);
+    
+      const playButton = this.add.text(this.scale.width / 2, 240, '▶ Play', {
+        fontSize: '24px',
+        backgroundColor: '#00cc66',
+        padding: { x: 12, y: 6 },
+        color: '#ffffff'
+      }).setOrigin(0.5).setInteractive();
+    
+      playButton.on('pointerdown', () => {
+        modal.destroy();
+        this.startLevel(level);
+      });
+    
+      modal.add([bg, title, description, playButton]);
+      this.uiContainer.add(modal);
+    }
+
+    startLevel(level: LevelConfig) {
+      this.currentLevel = level;
+      this.levelStartTime = this.time.now;
+      this.levelStarted = true;
+      this.spawnedPassengerCount = 0;
+      this.processedPassengerCount = 0;
+      this.suspiciousItemsPassed = 0;
+    
+      const spawnInterval = 1000 * level.spawnRate;
+    
+      // Begin auto-spawning
+      if(!level.isDebug) {
+        this.spawnTimer = this.time.addEvent({
+          delay: spawnInterval,
           callback: () => {
-            this.spawnPassenger(this.pathFinder);
+          if (this.spawnedPassengerCount >= level.passengerCount) {
+            this.spawnTimer.remove();
+            return;
+          }
+    
+          this.spawnPassenger(this.pathFinder);
+          this.spawnedPassengerCount++;
+        },
+          callbackScope: this,
+          loop: true
+        });
+      } else {
+        this.spawnTimer = this.time.addEvent({
+          delay: 5000,
+          callback: () => {
+            console.log('not spawning passengers in debug mode');
           },
           callbackScope: this,
           loop: true
         });
       }
+    }
 
-      EventBus.emit('current-scene-ready', this);
+    getElapsedLevelTime(): number {
+      if (!this.levelStarted || this.levelStartTime === null) return 0;
+    
+      const now = this.isPaused && this.pauseStartTime !== null
+        ? this.pauseStartTime
+        : this.time.now;
+    
+      return (now - this.levelStartTime - this.pauseOffset) / 1000;
+    }
+
+    pauseGame() {
+      if (!this.isPaused) {
+        this.isPaused = true;
+        this.pauseStartTime = this.time.now;
+    
+        this.physics.world.pause();
+        this.spawnTimer.paused = true;
+        this.passengers.getChildren().forEach(p => (p as Passenger).pause());
+      }
+    }
+    
+    resumeGame() {
+      if (this.isPaused) {
+        this.isPaused = false;
+        if (this.pauseStartTime !== null) {
+          this.pauseOffset += this.time.now - this.pauseStartTime;
+          this.pauseStartTime = null;
+        }
+    
+        this.physics.world.resume();
+        this.spawnTimer.paused = false;
+        this.passengers.getChildren().forEach(p => (p as Passenger).resume());
+      }
+    }
+    
+
+    completeLevel() {
+      this.levelCompleted = true;
+      const timeTaken = this.getElapsedLevelTime();
+    
+      const score = {
+        suspiciousItemsPassed: this.suspiciousItemsPassed,
+        passengersProcessed: this.processedPassengerCount,
+        timeTaken,
+        completed: true,
+        passed: this.suspiciousItemsPassed <= (this.currentLevel.kpis.find(kpi => kpi.key === 'suspiciousItemsPassed')?.max ?? 0)
+      };
+    
+      LevelProgressStore.markLevelComplete(this.currentLevel.id, score);
+    
+      this.showLevelCompleteModal(score);
+    }
+
+    showLevelCompleteModal(score: LevelScore) {
+      const modal = this.add.container(0, 0).setScrollFactor(0);
+    
+      const bg = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.8)
+        .setOrigin(0)
+        .setInteractive();
+    
+      const resultText = score.passed ? '✅ Level Passed' : '❌ Level Failed';
+      const summary = `Suspicious items: ${score.suspiciousItemsPassed}\nProcessed: ${score.passengersProcessed}\nTime: ${Math.round(score.timeTaken)}s`;
+    
+      const title = this.add.text(this.scale.width / 2, 150, resultText, {
+        fontSize: '32px',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+    
+      const stats = this.add.text(this.scale.width / 2, 220, summary, {
+        fontSize: '18px',
+        color: '#dddddd',
+        align: 'center'
+      }).setOrigin(0.5);
+    
+      const button = this.add.text(this.scale.width / 2, 300, '↩ Return to Menu', {
+        fontSize: '24px',
+        color: '#ffffff',
+        backgroundColor: '#0077cc',
+        padding: { x: 10, y: 6 }
+      }).setOrigin(0.5).setInteractive();
+    
+      button.on('pointerdown', () => {
+        this.scene.start('MainMenu'); // or whatever your menu scene is
+      });
+    
+      modal.add([bg, title, stats, button]);
+      this.uiContainer.add(modal);
     }
 
     setupUI() {
-      console.log('Game setupUI');
-
       this.spawnButton = this.add.text(0, 0, 'SPAWN', {
         fontSize: 18,
         color: '#000000'
@@ -158,15 +330,39 @@ export class Game extends BaseScene
         color: '#000000'
       });
 
-      this.scoreText = this.add.text(300, 0, `Score: ${this.score}`, {
+      this.scoreText = this.add.text(300, 0, `Passengers processed: 0`, {
         fontSize: 18,
         color: '#000000'
+      });
+
+      this.timerText = this.add.text(200, 0, 'Time: 0s', {
+        fontSize: 18,
+        color: '#000000'
+      });
+
+      this.pauseButton = this.add.text(400, 0, '⏸ Pause', {
+        fontSize: 18,
+        color: '#000000',
+        backgroundColor: '#cccccc',
+        padding: { x: 6, y: 4 }
+      })
+      .setInteractive()
+      .on('pointerdown', () => {
+        if (this.isPaused) {
+          this.resumeGame();
+          this.pauseButton.setText('⏸ Pause');
+        } else {
+          this.pauseGame();
+          this.pauseButton.setText('▶ Resume');
+        }
       });
 
       this.uiContainer.add(this.spawnButton);
       this.uiContainer.add(this.spawnButtonDebug);
       this.uiContainer.add(this.passengerListText);
       this.uiContainer.add(this.scoreText);
+      this.uiContainer.add(this.timerText);
+      this.uiContainer.add(this.pauseButton);
     }
       
     spawnPassenger (pathFinder: PathFinder, debug: boolean = false): Passenger
@@ -241,56 +437,51 @@ export class Game extends BaseScene
     }
 
     private renderPassengerList() {
-      const passengerList = (this.passengers.getChildren() as Passenger[]).map((passenger, index) => {
+      if(!this.passengers) {
+        return;
+      }
+
+      const passengers = this.passengers.getChildren() as Passenger[];
+      const passengerList = passengers.map((passenger, index) => {
         // check emoji or walking emoji
         const emoji = (passenger as Passenger).bag ? '💼' : '🚫';
         const impeded = (passenger as Passenger).impeded ? '🚫' : '';
         return `${index + 1}. ${passenger.name} ${passenger.currentTaskIndex} ${emoji} ${impeded} (${passenger.currentTask?.name}) ${(passenger as Passenger).currentStepInPath}`;
       }).join('\n');
 
-      this.passengerListText.setText(`Passengers: ${this.passengers.getChildren().length}\n${passengerList}`);
-    }
-
-    private renderFocusedPassengerDetails() {
-      if(this.focusPassengerDetails) {
-        this.focusPassengerDetails.destroy();
-      }
-
-      if(this.focusPassenger) {
-        this.focusPassengerDetails = this.add.text(SIZE.WIDTH - 500, 0, `
-          Focused Passenger: ${this.focusPassenger.name}
-          Impeded: ${this.focusPassenger.impeded}
-          Current Step In Path: ${this.focusPassenger.currentStepInPath}
-          `, {
-          fontSize: 18,
-          color: '#000000',
-          align: 'right'
-        });
-      } else {
-        this.focusPassengerDetails = this.add.text(SIZE.WIDTH - 500, 0, 'No passenger focused', {
-          fontSize: 18,
-          color: '#000000',
-          align: 'right'
-        });
-      }
-
-      this.uiContainer.add(this.focusPassengerDetails);
+      this.passengerListText.setText(`Passengers: ${passengers.length}\n${passengerList}`);
     }
 
     private renderScore() {
-      this.scoreText.setText(`Score: ${this.score}`);
+      this.scoreText.setText(`Passengers processed: ${this.processedPassengerCount}`);
     }
 
     private updateScore() {
-      this.score += 1;
+      this.processedPassengerCount++;
+    }
+
+    private renderTime() {
+      this.timerText.setText(`Time: ${this.getElapsedLevelTime().toFixed(1)}s`);
     }
 
     update (time: number, delta: number)
     {
-      this.renderPassengerList();
-      this.renderFocusedPassengerDetails();
+      if(!this.levelStarted || this.levelCompleted || this.isPaused) {
+        return;
+      }
 
-      this.renderScore()
-    }
-    
+      if (
+        this.currentLevel &&
+        this.processedPassengerCount >= this.currentLevel.passengerCount &&
+        !this.levelCompleted
+      ) {
+        this.completeLevel();
+      }
+
+      if(this.levelStarted) {
+        this.renderPassengerList();
+        this.renderScore();
+        this.renderTime();
+      }
+    } 
 }

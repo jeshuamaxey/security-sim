@@ -1,8 +1,9 @@
-import { GameObjects, Scene } from 'phaser';
+import { GameObjects } from 'phaser';
+import LevelProgressStore from '../store/levelProgress';
 
-import { EventBus } from '../EventBus';
+import BaseScene from './BaseScene';
 
-export class MainMenu extends Scene
+export class MainMenu extends BaseScene
 {
     background: GameObjects.Image;
     logo: GameObjects.Image;
@@ -11,42 +12,41 @@ export class MainMenu extends Scene
 
     constructor ()
     {
-        super('MainMenu');
+        super({ key: 'MainMenu' });
     }
 
-    create ()
-    {
-        console.warn('jmping straight into game for dev');
-        this.scene.start('MapEditor');
-        return;
-
-        this.background = this.add.image(512, 384, 'background');
-
-        this.logo = this.add.image(512, 300, 'logo').setDepth(100);
-
-        this.title = this.add.text(512, 460, 'Play', {
-            fontFamily: 'Arial Black', fontSize: 38, color: '#ffffff',
-            stroke: '#000000', strokeThickness: 8,
-            align: 'center'
-        }).setOrigin(0.5).setDepth(100);
-
-        // Make the text interactive
-        this.title.setInteractive({ cursor: 'pointer' });
-        
-        // Add hover effect
-        this.title.on('pointerover', () => {
-            this.title.setStyle({ color: '#eeeeee' });
-        });
-        
-        this.title.on('pointerout', () => {
-            this.title.setStyle({ color: '#ffffff' });
-        });
-        
-        // Add click handler to start the Game scene
-        this.title.on('pointerdown', () => {
-            this.scene.start('Game');
-        });
-
-        EventBus.emit('current-scene-ready', this);
-    }
+    create() {
+      const title = this.add.text(this.scale.width / 2, 100, 'SECURITY SIM', {
+        fontSize: '48px',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+    
+      const subtitle = this.add.text(this.scale.width / 2, 160, 'Airport Security Simulator', {
+        fontSize: '18px',
+        color: '#aaaaaa'
+      }).setOrigin(0.5);
+    
+      const playButton = this.add.text(this.scale.width / 2, 250, '▶ Play', {
+        fontSize: '32px',
+        backgroundColor: '#00cc66',
+        padding: { x: 16, y: 8 },
+        color: '#ffffff'
+      }).setOrigin(0.5).setInteractive();
+    
+      playButton.on('pointerdown', () => {
+        this.scene.start('Game');
+      });
+    
+      const resetButton = this.add.text(this.scale.width / 2, 320, '🗑 Reset Progress', {
+        fontSize: '16px',
+        color: '#ff4444'
+      }).setOrigin(0.5).setInteractive();
+    
+      resetButton.on('pointerdown', () => {
+        LevelProgressStore.clear();
+        alert('Progress reset!');
+      });
+    
+      this.cameras.main.setBackgroundColor('#1e1e1e');
+    }    
 }
