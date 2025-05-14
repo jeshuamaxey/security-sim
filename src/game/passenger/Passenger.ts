@@ -1,5 +1,7 @@
 import { PASSENGER } from "./constants";
 
+import { Pausable } from '../interfaces/Pausable';
+
 import { spriteAnimations } from '../sprite-animations';
 import { PathFinder } from "../utils/tilemaps";
 import { TaskDestination } from "../tasks/tasks";
@@ -45,7 +47,7 @@ export type PassengerTask = {
   type: 'wait';
   durationMs: number;
 })
-class Passenger extends Phaser.Physics.Arcade.Sprite {
+class Passenger extends Phaser.Physics.Arcade.Sprite implements Pausable {
   private direction: Direction;
   private speed: number;
   public body: Phaser.Physics.Arcade.Body;
@@ -60,7 +62,6 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   public lastPassengerCollidedWith?: Passenger;
   private lastCollisionTimeout?: Phaser.Time.TimerEvent;
 
-  private wasMovingBeforePause: boolean = false;
   private paused: boolean = false;
   private awaitingWaypointCheck: boolean = false;
 
@@ -197,9 +198,8 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
   public pause() {
     this.paused = true;
 
-    this.wasMovingBeforePause = this.movingToDestination;
     this.body.setVelocity(0);
-    this.stopWalkingAnimation();
+    this.anims.pause();
   
     if (this.checkArrivedAtWaypoint) {
       this.checkArrivedAtWaypoint.remove(false); // do not destroy immediately
@@ -219,6 +219,7 @@ class Passenger extends Phaser.Physics.Arcade.Sprite {
 
     this.paused = false;
     this.movingToDestination = false;
+    this.anims.resume();
   
     if (this.checkArrivedAtWaypoint && this.awaitingWaypointCheck) {
       this.pLog('Resuming checkArrivedAtWaypoint', 'log');
