@@ -1,9 +1,20 @@
 import { GAME_CONFIG } from "../config";
 
+type Tool = {
+  name: string;
+  emoji: string;
+}
+
+const tools: Tool[] = [{
+  name: 'delete',
+  emoji: '🗑'
+}]
 export default class MapEditorHUD extends Phaser.GameObjects.Container {
   scene: Phaser.Scene;
   tilePalette: Phaser.GameObjects.Group;
   selectedTileIndex: number;
+  selectedToolIndex: number;
+
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
@@ -29,6 +40,13 @@ export default class MapEditorHUD extends Phaser.GameObjects.Container {
       console.log('saveBtn clicked');
       this.scene.events.emit('hud:save');
     });
+    saveBtn.on('pointerover', () => {
+      this.scene.input.manager.canvas.style.cursor = 'pointer';
+    });
+
+    saveBtn.on('pointerout', () => {
+      this.scene.input.manager.canvas.style.cursor = 'default';
+    });
 
     const playBtn = scene.add.text(width - 80, 6, '▶ Play', {
       fontSize: 16,
@@ -38,8 +56,16 @@ export default class MapEditorHUD extends Phaser.GameObjects.Container {
       console.log('playBtn clicked');
       this.scene.events.emit('hud:play');
     });
+    playBtn.on('pointerover', () => {
+      this.scene.input.manager.canvas.style.cursor = 'pointer';
+    });
+
+    playBtn.on('pointerout', () => {
+      this.scene.input.manager.canvas.style.cursor = 'default';
+    });
 
     this.createTilePalette();
+    this.createToolPalette();
 
     this.add([header, title, saveBtn, playBtn]);
   }
@@ -89,5 +115,44 @@ export default class MapEditorHUD extends Phaser.GameObjects.Container {
         this.scene.input.manager.canvas.style.cursor = 'default';
       });
     });
+  }
+
+  createToolPalette() {
+    // this.toolPalette = this.scene.add.group();
+
+    const height = this.scene.scale.height;
+
+    const x = GAME_CONFIG.TILE_SIZE
+    const y = height - (Math.round(this.tilePalette.children.size/2) * GAME_CONFIG.TILE_SIZE) + GAME_CONFIG.TILE_SIZE
+
+    console.log({ x, y})
+
+    tools.forEach((tool, i) => {
+      const btn = this.scene.add.text(x, y, `${tool.emoji}`, {
+        fontSize: 14,
+        color: '#ffffff',
+        backgroundColor: '#dd2200',
+        fixedHeight: GAME_CONFIG.TILE_SIZE,
+        fixedWidth: GAME_CONFIG.TILE_SIZE,
+        padding: { x: 8, y: 10 }
+      })
+      .setInteractive()
+      .setScrollFactor(0)
+      .setOrigin(0.5,0.5)
+
+      btn.on('pointerdown', () => {
+        btn.setBackgroundColor(this.selectedToolIndex === 0 ? '#ff5555' : '#cc0000');
+        this.scene.events.emit(`hud:${tool.name}-tool-selected`)
+      });
+
+      btn.on('pointerover', () => {
+        this.scene.input.manager.canvas.style.cursor = 'pointer';
+      });
+
+      btn.on('pointerout', () => {
+        this.scene.input.manager.canvas.style.cursor = 'default';
+      });
+      this.add(btn);
+    })    
   }
 }

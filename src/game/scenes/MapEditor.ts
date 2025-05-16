@@ -15,10 +15,9 @@ export class MapEditor extends BaseScene {
 
   getTileAtPointer: (pointer: Phaser.Input.Pointer) => { tileX: number, tileY: number };
 
-  constructor ()
-    {
-        super({ key: 'MapEditor' });
-    }
+  constructor () {
+    super({ key: 'MapEditor' });
+  }
 
   create() {
     super.create();
@@ -33,6 +32,15 @@ export class MapEditor extends BaseScene {
     this.events.on('hud:tile-selected', (index: number) => {
       this.selectedTileIndex = index;
       this.ghostTile.setFrame(index);
+      this.ghostTile.clearTint();
+      this.ghostTile.setVisible(true);
+    });
+    this.events.on('hud:delete-tool-selected', () => {
+      console.log('bing')
+      this.selectedTileIndex = -1;
+      this.ghostTile.setFrame(-1);
+      this.ghostTile.setTint(0xff0000, 0.9);
+      this.ghostTile.setVisible(false);
     });
 
     const mapStore = MapStore.load();
@@ -58,7 +66,6 @@ export class MapEditor extends BaseScene {
     }
     
     this.editableLayer.setVisible(true);
-    // this.editableLayer.setInteractive();
 
     this.gameContainer.add(this.floorLayer);
     this.gameContainer.add(this.editableLayer);
