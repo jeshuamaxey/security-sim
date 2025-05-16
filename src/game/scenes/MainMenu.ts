@@ -36,8 +36,28 @@ export class MainMenu extends BaseScene
       playButton.on('pointerdown', () => {
         this.scene.start('Game');
       });
+
+      const levelSelectButton = this.add.text(this.scale.width / 2, 320, '🔍 Level Select', {
+        fontSize: '16px',
+        color: '#ffffff',
+        padding: { x: 16, y: 8 }
+      }).setOrigin(0.5).setInteractive();
+
+      levelSelectButton.on('pointerdown', () => {
+        this.scene.start('LevelSelect');
+      });
+
+      const mapEditorButton = this.add.text(this.scale.width / 2, 380, '🔧 Map Editor', {
+        fontSize: '16px',
+        color: '#ffffff',
+        padding: { x: 16, y: 8 }
+      }).setOrigin(0.5).setInteractive();
+
+      mapEditorButton.on('pointerdown', () => {
+        this.scene.start('MapEditor');
+      });
     
-      const resetButton = this.add.text(this.scale.width / 2, 320, '🗑 Reset Progress', {
+      const resetButton = this.add.text(this.scale.width / 2, this.scale.height - 100, '🗑 Reset Progress', {
         fontSize: '16px',
         color: '#ff4444'
       }).setOrigin(0.5).setInteractive();

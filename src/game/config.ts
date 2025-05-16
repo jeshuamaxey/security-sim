@@ -10,6 +10,11 @@ export const GAME_CONFIG = {
   TILESET_SPRITESHEET_KEY: 'airport-tilemap-spritesheet',
   TILE_SIZE: 32,
 
-  MAP_WIDTH: 32,
-  MAP_HEIGHT: 24,
+  MAP_WIDTH: 12,
+  MAP_HEIGHT: 12,
+
+  STYLE: {
+    BACKGROUND_COLOR: '#6cb2eb',
+    HEADER_HEIGHT: 30,
+  }
 }

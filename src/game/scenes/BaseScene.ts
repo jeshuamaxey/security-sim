@@ -29,13 +29,26 @@ export default class BaseScene extends Phaser.Scene {
     // Define margins
     const marginX = 100; // left & right
 
-    this.gameAreaWidth = Math.floor((screenWidth - 2 * marginX) / GAME_CONFIG.TILE_SIZE) * GAME_CONFIG.TILE_SIZE;
-    this.gameAreaHeight = Math.floor(this.gameAreaWidth * (SIZE.HEIGHT / SIZE.WIDTH) / GAME_CONFIG.TILE_SIZE) * GAME_CONFIG.TILE_SIZE;
+    // this.gameAreaWidth = Math.floor((screenWidth - 2 * marginX) / GAME_CONFIG.TILE_SIZE) * GAME_CONFIG.TILE_SIZE;
+    // this.gameAreaHeight = Math.floor(this.gameAreaWidth * (SIZE.HEIGHT / SIZE.WIDTH) / GAME_CONFIG.TILE_SIZE) * GAME_CONFIG.TILE_SIZE;
+
+    // Calculate the required width based on map dimensions
+    const requiredWidth = GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE;
+    const requiredHeight = GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE;
+
+    // Check if the required width fits with margins
+    if (requiredWidth > (screenWidth - 2 * marginX)) {
+      console.warn('Map width is too large for screen with current margins');
+    }
+
+    this.gameAreaWidth = requiredWidth;
+    this.gameAreaHeight = requiredHeight;
 
     const marginY = (screenHeight - this.gameAreaHeight) / 2;
 
     // Game container stays static
     this.gameContainer = this.add.container(marginX, marginY);
+    this.gameContainer.setSize(this.gameAreaWidth, this.gameAreaHeight);
     this.uiContainer = this.add.container(0, 0);
 
     this.gameCamera = this.cameras.main;
@@ -45,15 +58,13 @@ export default class BaseScene extends Phaser.Scene {
       this.gameAreaWidth,  // width
       this.gameAreaHeight  // height
     );
-    this.gameCamera.setBackgroundColor('#ff0000');
+
+    this.gameCamera.setBackgroundColor(GAME_CONFIG.STYLE.BACKGROUND_COLOR);
     this.gameCamera.ignore(this.uiContainer);
     
     // UI container stays static
     this.uiCamera = this.cameras.add(0, 0, screenWidth, screenHeight);
     this.uiCamera.ignore(this.gameContainer); // Don't render the game world again
-
-    this.gameCamera.setBackgroundColor('rgba(0, 0, 0, 0.9)');
-    this.uiCamera.setBackgroundColor('rgba(0, 255, 0, 0.1)');
 
     this.safeSetupUI();
 
@@ -78,7 +89,6 @@ export default class BaseScene extends Phaser.Scene {
   } 
 
   setupUI() {
-    console.log('BaseScene setupUI');
     // Stub to be overridden in subclasses
   }
 

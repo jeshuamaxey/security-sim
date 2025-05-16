@@ -7,6 +7,7 @@ import { Preloader } from './scenes/Preloader';
 import { PASSENGER } from './passenger/constants';
 import { GAME_CONFIG } from './config';
 import { MapEditor } from './scenes/MapEditor';
+import { LevelSelect } from './scenes/LevelSelect';
 
 export const SIZE = {
   WIDTH: 1024,
@@ -25,7 +26,7 @@ const config: Phaser.Types.Core.GameConfig = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
     zoom: 1
   },
-  backgroundColor: '#028af8',
+  backgroundColor: GAME_CONFIG.STYLE.BACKGROUND_COLOR,
   physics: {
     default: 'arcade',
     arcade: {
@@ -38,7 +39,8 @@ const config: Phaser.Types.Core.GameConfig = {
     MainMenu,
     MainGame,
     GameOver,
-    MapEditor
+    MapEditor,
+    LevelSelect
   ]
 };
 

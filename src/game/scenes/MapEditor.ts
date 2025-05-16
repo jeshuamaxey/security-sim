@@ -1,4 +1,5 @@
 import { GAME_CONFIG } from "../config";
+import MapEditorHUD from '../hud/MapEditorHUD';
 import MapStore from "../store/map";
 import BaseScene from "./BaseScene";
 
@@ -6,12 +7,13 @@ export class MapEditor extends BaseScene {
   map: Phaser.Tilemaps.Tilemap;
   editableLayer: Phaser.Tilemaps.TilemapLayer;
   floorLayer: Phaser.Tilemaps.TilemapLayer;
-  selectedTileIndex: number = 1; // Default tile to paint
+  selectedTileIndex: number = -1; // Default tile to paint
   requiredTypes = ['body_scanner','bag_dropoff_passenger_bay','bag_pickup_passenger_bay','gate'];
 
-  getTileAtPointer: (pointer: Phaser.Input.Pointer) => { tileX: number, tileY: number };
+  ghostTile: Phaser.GameObjects.Sprite;
+  hoverEnabled: boolean = true;
 
-  tilePalette: Phaser.GameObjects.Group;
+  getTileAtPointer: (pointer: Phaser.Input.Pointer) => { tileX: number, tileY: number };
 
   constructor ()
     {
@@ -23,6 +25,16 @@ export class MapEditor extends BaseScene {
 
     this.createBaseLayout();
 
+    const hud = new MapEditorHUD(this);
+    this.uiContainer.add(hud);
+
+    this.events.on('hud:save', () => this.saveMap());
+    this.events.on('hud:play', () => this.scene.start('Game'));
+    this.events.on('hud:tile-selected', (index: number) => {
+      this.selectedTileIndex = index;
+      this.ghostTile.setFrame(index);
+    });
+
     const mapStore = MapStore.load();
 
     // Create the tilemap with the correct dimensions
@@ -31,6 +43,7 @@ export class MapEditor extends BaseScene {
 
     // Create the floor layer
     this.floorLayer = this.tilemapUtils.createFloorLayer(this.map, tileset);
+    // this.floorLayer.setInteractive();
     
     // Create the editable layer
     this.editableLayer = this.tilemapUtils.createNewTilemapLayer(this.map, 'editable', tileset);
@@ -45,7 +58,7 @@ export class MapEditor extends BaseScene {
     }
     
     this.editableLayer.setVisible(true);
-    this.editableLayer.setInteractive();
+    // this.editableLayer.setInteractive();
 
     this.gameContainer.add(this.floorLayer);
     this.gameContainer.add(this.editableLayer);
@@ -53,14 +66,13 @@ export class MapEditor extends BaseScene {
     this.tilemapUtils.fitCameraToMap(this.map);
 
     this.getTileAtPointer = (pointer: Phaser.Input.Pointer) => {
-      // Convert pointer position to layer-local coordinates
-      const localX = (pointer.worldX)
-      const localY = (pointer.worldY)
-      
-      // Convert to tile coordinates
+      // Adjust for gameContainer offset
+      const localX = pointer.worldX - this.gameContainer.x;
+      const localY = pointer.worldY - this.gameContainer.y;
+    
       const tileX = Math.floor(localX / GAME_CONFIG.TILE_SIZE);
       const tileY = Math.floor(localY / GAME_CONFIG.TILE_SIZE);
-
+    
       return { tileX, tileY };
     }
 
@@ -84,30 +96,96 @@ export class MapEditor extends BaseScene {
 
       if (tile) {
         tile.setVisible(true);
-
-        // Optional: attach metadata
-        tile.properties.type = this.getTileTypeFromIndex(this.selectedTileIndex);
       } else {
         console.error('Failed to place tile');
       }
     });
 
+    // Try using the scene's dimensions instead
+    const width = this.gameContainer.width;
+    const height = this.gameContainer.height;
+    const x = this.gameContainer.x;
+    const y = this.gameContainer.y;
+
+    const inputZone = new Phaser.GameObjects.Zone(
+      this,
+      x,
+      y,
+      width,
+      height
+    )
+    .setOrigin(0)
+    .setInteractive()
+    .setScrollFactor(0);
+
+    this.add.existing(inputZone);
+    this.gameCamera.ignore([inputZone]);
+
+    // hover highlight
+    // 1. Create a highlight square
+    // this.ghostTile = this.add
+    //   .rectangle(0, 0, GAME_CONFIG.TILE_SIZE, GAME_CONFIG.TILE_SIZE)
+    //   .setStrokeStyle(2, 0xffff00)
+    //   .setFillStyle(0xffff00, 0.2)
+    //   .setVisible(false);
+
+    this.ghostTile = this.add.sprite(0, 0, GAME_CONFIG.TILESET_SPRITESHEET_KEY, this.selectedTileIndex)
+      .setAlpha(0.5)
+      .setVisible(false)
+      .setDepth(1000) // ensure it's above everything
+      .setScrollFactor(0); // optional — disable scrolling if needed
+
+    this.ghostTile.setFrame(this.selectedTileIndex);
+
+    this.gameContainer.add(this.ghostTile); // Ensure it's in the game container
+    this.uiCamera.ignore(this.ghostTile);   // Don't render it in the UI
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!this.hoverEnabled) return;
+  
+      const { tileX, tileY } = this.getTileAtPointer(pointer)
+
+      if (
+        tileX >= 0 && tileX < GAME_CONFIG.MAP_WIDTH &&
+        tileY >= 0 && tileY < GAME_CONFIG.MAP_HEIGHT
+      ) {
+        const snappedX = tileX * GAME_CONFIG.TILE_SIZE - this.gameContainer.x;
+        const snappedY = tileY * GAME_CONFIG.TILE_SIZE - this.gameContainer.y;
+    
+        this.ghostTile.setPosition(
+          snappedX + GAME_CONFIG.TILE_SIZE / 2,
+          snappedY + GAME_CONFIG.TILE_SIZE / 2
+        );
+        this.ghostTile.setVisible(true);
+      } else {
+        this.ghostTile.setVisible(false);
+      }
+    });
+    
+    this.input.on('pointerout', () => {
+      this.ghostTile.setVisible(false);
+    });    
+    
+    inputZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      const localX = pointer.worldX - this.gameContainer.x;
+      const localY = pointer.worldY - this.gameContainer.y;
+      
+      const tileX = Math.floor(localX / GAME_CONFIG.TILE_SIZE);
+      const tileY = Math.floor(localY / GAME_CONFIG.TILE_SIZE);
+      
+      console.log(`InputZone :: P(${pointer.x.toFixed(0)}, ${pointer.y.toFixed(0)}) T(${tileX}, ${tileY})`);
+
+      console.log('Raw pointer coordinates:', {
+        worldX: pointer.worldX,
+        worldY: pointer.worldY,
+        x: pointer.x,
+        y: pointer.y
+      });
+
+      this.editableLayer.putTileAt(this.selectedTileIndex, tileX, tileY);
+    });
+
     // Optional: Add a small UI or hotkeys to change selectedTileIndex
-  }
-
-  setupUI() {
-    this.createTilePalette();
-    this.createSaveButton();
-    this.createPlayButton();
-  }
-
-  getTileTypeFromIndex(index: number): string | undefined {
-    // Match tile index to type (customize to match your tileset)
-    switch (index) {
-      case 5: return 'scanner';
-      case 10: return 'spawn';
-      default: return undefined;
-    }
   }
 
   saveMap(): void {
@@ -135,90 +213,5 @@ export class MapEditor extends BaseScene {
     };
     
     MapStore.save(savedData);
-  }
-
-  createTilePalette() {
-    const tileIndices = [1, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27];
-    this.tilePalette = this.add.group();
-
-    tileIndices.forEach((index, i) => {
-      const width = GAME_CONFIG.TILE_SIZE;
-      const height = GAME_CONFIG.TILE_SIZE;
-      const tilesPerRow = 2;
-
-      const rowN = 1 + Math.floor(i / tilesPerRow);
-      const colN = 1 + i % tilesPerRow;
-
-      const img = this.add.sprite(colN * width, rowN * height, GAME_CONFIG.TILESET_SPRITESHEET_KEY, index)
-        .setInteractive()
-        .setScale(1.0)
-        .setScrollFactor(0);
-
-      this.tilePalette.add(img);
-      this.uiContainer.add(img);
-
-      // Handle clicks on the tile palette
-      img.on('pointerdown', () => {
-        console.log('Selected tile from palette:', index);
-        this.selectedTileIndex = index;
-        // Visual feedback for selected tile
-        this.tilePalette.getChildren().forEach(child => {
-          if (child instanceof Phaser.GameObjects.Sprite) {
-            child.setTint(0xffffff);
-          }
-        });
-        img.setTint(0x00dd00); // Highlight selected tile
-      });
-
-      img.on('pointerover', () => {
-        this.input.manager.canvas.style.cursor = 'pointer';
-      });
-
-      img.on('pointerout', () => {
-        this.input.manager.canvas.style.cursor = 'default';
-      });
-    });
-  }
-
-  createSaveButton() {
-    // create a rect to contain the text
-    const x = 100;
-    const y = this.scale.height - 20;
-    const buttonWidth = 70;
-    const buttonHeight = 40;
-
-    const saveButtonText = this.add.text(x, y, 'Save', {
-      fontSize: 18,
-      color: '#000000'
-    });
-    const saveButton = this.add.rectangle(x, y, buttonWidth, buttonHeight, 0xffffff, 1);
-    saveButton.setInteractive();
-
-    this.uiContainer.add(saveButton);
-    this.uiContainer.add(saveButtonText);
-    saveButton.on('pointerdown', () => {
-      this.saveMap();
-    });
-  }
-
-  createPlayButton() {
-    // create a rect to contain the text
-    const x = 180;
-    const y = this.scale.height - 20;
-    const buttonWidth = 70;
-    const buttonHeight = 40;
-
-    const playButtonText = this.add.text(x, y, 'Play', {
-      fontSize: 18,
-      color: '#000000'
-    });
-    const playButton = this.add.rectangle(x, y, buttonWidth, buttonHeight, 0xffffff, 1);
-    playButton.setInteractive();
-
-    this.uiContainer.add(playButton);
-    this.uiContainer.add(playButtonText);
-    playButton.on('pointerdown', () => {
-      this.scene.start('Game');
-    });
   }
 }

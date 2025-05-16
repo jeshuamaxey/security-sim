@@ -19,24 +19,24 @@ export type LevelConfig = {
 };
 
 const LEVELS: LevelConfig[] = [
-  {
-    id: 'debug',
-    name: 'Debug',
-    description: 'Debug level',
-    airportId: 'LHR', // London Heathrow
-    spawnRate: 0,
-    passengerCount: 99,
-    startDate: '2025-01-06', // Monday
-    endDate: '2025-01-12',   // Sunday
-    isTutorial: true,
-    isDebug: true,
-    kpis: [
-      {
-        key: 'suspiciousItemsPassed',
-        max: 1
-      }
-    ]
-  },
+  // {
+  //   id: 'debug',
+  //   name: 'Debug',
+  //   description: 'Debug level',
+  //   airportId: 'LHR', // London Heathrow
+  //   spawnRate: 0,
+  //   passengerCount: 99,
+  //   startDate: '2025-01-06', // Monday
+  //   endDate: '2025-01-12',   // Sunday
+  //   isTutorial: true,
+  //   isDebug: true,
+  //   kpis: [
+  //     {
+  //       key: 'suspiciousItemsPassed',
+  //       max: 1
+  //     }
+  //   ]
+  // },
   {
     id: 'tutorial',
     name: 'Training Terminal',

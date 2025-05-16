@@ -7,6 +7,7 @@ import getPassengerTasks, { TaskDestinationMap } from '../tasks/tasks';
 import { GAME_CONFIG } from '../config';
 import Bag from '../bag/Bag';
 import BaseScene from './BaseScene';
+import GameHUD from '../hud/GameHUD';
 import MapStore from '../store/map';
 import LevelProgressStore, { LevelScore } from '../store/levelProgress';
 import LEVELS, { LevelConfig } from '../levels';
@@ -36,6 +37,23 @@ export class Game extends BaseScene
     focusPassenger: Passenger | null;
 
     pathFinder: PathFinder;
+
+    hud: GameHUD;
+
+    uiElements: {
+      playPause?: Phaser.GameObjects.Text;
+      timeText?: Phaser.GameObjects.Text;
+      passengerCount?: Phaser.GameObjects.Text;
+      exitBtn?: Phaser.GameObjects.Text;
+      debugToggle?: Phaser.GameObjects.Text;
+
+      debugText?: Phaser.GameObjects.Text;
+      spawnButton?: Phaser.GameObjects.Text;
+      spawnButtonDebug?: Phaser.GameObjects.Text;
+    };
+
+    debugVisible: boolean;
+    debugElements: Phaser.GameObjects.Text[];
 
     gameText: Phaser.GameObjects.Text;
     spawnButton: Phaser.GameObjects.Text;
@@ -68,6 +86,13 @@ export class Game extends BaseScene
       
       // LAYER CREATION
       this.createBaseLayout();
+
+      this.hud = new GameHUD(this, this.uiContainer);
+
+      this.events.on('pause-game', () => this.pauseGame());
+      this.events.on('resume-game', () => this.resumeGame());
+      this.events.on('spawn-passenger', () => this.spawnPassenger(this.pathFinder));
+      this.events.on('spawn-passenger-debug', () => this.spawnPassenger(this.pathFinder, true));
 
       const mapStore = MapStore.load();
 
@@ -252,7 +277,6 @@ export class Game extends BaseScene
       }
     }
     
-
     completeLevel() {
       this.levelCompleted = true;
       const timeTaken = this.getElapsedLevelTime();
@@ -304,65 +328,6 @@ export class Game extends BaseScene
     
       modal.add([bg, title, stats, button]);
       this.uiContainer.add(modal);
-    }
-
-    setupUI() {
-      this.spawnButton = this.add.text(0, 0, 'SPAWN', {
-        fontSize: 18,
-        color: '#000000'
-      });
-      this.spawnButton.setInteractive();
-      this.spawnButton.on('pointerdown', () => {
-        this.spawnPassenger(this.pathFinder);
-      });
-
-      this.spawnButtonDebug = this.add.text(0, 20, 'SPAWN DEBUG', {
-        fontSize: 18,
-        color: '#000000'
-      });
-      this.spawnButtonDebug.setInteractive();
-      this.spawnButtonDebug.on('pointerdown', () => {
-        this.spawnPassenger(this.pathFinder, true);
-      });
-
-      this.passengerListText = this.add.text(0, 40, `Passengers: ${0}`, {
-        fontSize: 18,
-        color: '#000000'
-      });
-
-      this.scoreText = this.add.text(300, 0, `Passengers processed: 0`, {
-        fontSize: 18,
-        color: '#000000'
-      });
-
-      this.timerText = this.add.text(200, 0, 'Time: 0s', {
-        fontSize: 18,
-        color: '#000000'
-      });
-
-      this.pauseButton = this.add.text(400, 0, '⏸ Pause', {
-        fontSize: 18,
-        color: '#000000',
-        backgroundColor: '#cccccc',
-        padding: { x: 6, y: 4 }
-      })
-      .setInteractive()
-      .on('pointerdown', () => {
-        if (this.isPaused) {
-          this.resumeGame();
-          this.pauseButton.setText('⏸ Pause');
-        } else {
-          this.pauseGame();
-          this.pauseButton.setText('▶ Resume');
-        }
-      });
-
-      this.uiContainer.add(this.spawnButton);
-      this.uiContainer.add(this.spawnButtonDebug);
-      this.uiContainer.add(this.passengerListText);
-      this.uiContainer.add(this.scoreText);
-      this.uiContainer.add(this.timerText);
-      this.uiContainer.add(this.pauseButton);
     }
       
     spawnPassenger (pathFinder: PathFinder, debug: boolean = false): Passenger
@@ -452,16 +417,8 @@ export class Game extends BaseScene
       this.passengerListText.setText(`Passengers: ${passengers.length}\n${passengerList}`);
     }
 
-    private renderScore() {
-      this.scoreText.setText(`Passengers processed: ${this.processedPassengerCount}`);
-    }
-
     private updateScore() {
       this.processedPassengerCount++;
-    }
-
-    private renderTime() {
-      this.timerText.setText(`Time: ${this.getElapsedLevelTime().toFixed(1)}s`);
     }
 
     update (time: number, delta: number)
@@ -478,10 +435,6 @@ export class Game extends BaseScene
         this.completeLevel();
       }
 
-      if(this.levelStarted) {
-        this.renderPassengerList();
-        this.renderScore();
-        this.renderTime();
-      }
-    } 
+      this.hud.updateHUD(this.getElapsedLevelTime(), this.processedPassengerCount, this.currentLevel.passengerCount);
+    }
 }
