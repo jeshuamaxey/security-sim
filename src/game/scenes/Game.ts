@@ -10,7 +10,8 @@ import BaseScene from './BaseScene';
 import GameHUD from '../hud/GameHUD';
 import MapStore from '../store/map';
 import LevelProgressStore, { LevelScore } from '../store/levelProgress';
-import LEVELS, { LevelConfig } from '../levels';
+import { LevelConfig } from '../levels';
+import UIButton from '../ui/Button';
 
 const DEBUG_TILES = false;
 export class Game extends BaseScene
@@ -75,7 +76,7 @@ export class Game extends BaseScene
     create ()
     {
       // LEVEL
-      const level = LevelProgressStore.getNextIncompleteLevel(LEVELS);
+      const level = LevelProgressStore.getNextIncompleteLevel();
       if (!level) {
         console.warn('No levels remaining!');
         return;
@@ -86,8 +87,6 @@ export class Game extends BaseScene
       
       // LAYER CREATION
       this.createBaseLayout();
-
-      this.hud = new GameHUD(this, this.uiContainer);
 
       this.events.on('pause-game', () => this.pauseGame());
       this.events.on('resume-game', () => this.resumeGame());
@@ -168,6 +167,8 @@ export class Game extends BaseScene
         runChildUpdate: true
       });
 
+      this.hud = new GameHUD(this, this.uiContainer, this.passengers);
+
       this.showPreGameModal(this.currentLevel);
     }
 
@@ -188,17 +189,17 @@ export class Game extends BaseScene
         wordWrap: { width: this.scale.width * 0.8 }
       }).setOrigin(0.5);
     
-      const playButton = this.add.text(this.scale.width / 2, 240, '▶ Play', {
+      const playButton = new UIButton(this, this.scale.width / 2, 240, '▶ Play', {
+        onClick: () => {
+          modal.destroy();
+          this.startLevel(level);
+        }
+      }, {
         fontSize: '24px',
         backgroundColor: '#00cc66',
         padding: { x: 12, y: 6 },
         color: '#ffffff'
-      }).setOrigin(0.5).setInteractive();
-    
-      playButton.on('pointerdown', () => {
-        modal.destroy();
-        this.startLevel(level);
-      });
+      }).setOrigin(0.5)
     
       modal.add([bg, title, description, playButton]);
       this.uiContainer.add(modal);
@@ -314,17 +315,18 @@ export class Game extends BaseScene
         color: '#dddddd',
         align: 'center'
       }).setOrigin(0.5);
-    
-      const button = this.add.text(this.scale.width / 2, 300, '↩ Return to Menu', {
+
+      const button = new UIButton(this, this.scale.width / 2, 300, '↩ Return to Menu', {
+        onClick: () => {
+          this.scene.start('MainMenu'); // or whatever your menu scene is
+        }
+      }, {
         fontSize: '24px',
         color: '#ffffff',
         backgroundColor: '#0077cc',
         padding: { x: 10, y: 6 }
-      }).setOrigin(0.5).setInteractive();
-    
-      button.on('pointerdown', () => {
-        this.scene.start('MainMenu'); // or whatever your menu scene is
-      });
+      })
+      .setOrigin(0.5)
     
       modal.add([bg, title, stats, button]);
       this.uiContainer.add(modal);

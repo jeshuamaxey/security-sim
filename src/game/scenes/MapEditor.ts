@@ -29,6 +29,7 @@ export class MapEditor extends BaseScene {
 
     this.events.on('hud:save', () => this.saveMap());
     this.events.on('hud:play', () => this.scene.start('Game'));
+    this.events.on('hud:back', () => this.scene.start('MainMenu'));
     this.events.on('hud:tile-selected', (index: number) => {
       this.selectedTileIndex = index;
       this.ghostTile.setFrame(index);

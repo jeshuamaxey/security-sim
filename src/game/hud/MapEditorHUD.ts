@@ -1,4 +1,5 @@
 import { GAME_CONFIG } from "../config";
+import UIButton from "../ui/Button";
 
 type Tool = {
   name: string;
@@ -32,42 +33,43 @@ export default class MapEditorHUD extends Phaser.GameObjects.Container {
       color: '#ffffff'
     });
 
-    const saveBtn = scene.add.text(width - 160, 6, '💾 Save', {
+    const backBtn = new UIButton(this.scene, width - 240, 6, '↩ Back', {
+      onClick: () => {
+        this.scene.events.emit('hud:back');
+      }
+    }, {
+      fontSize: 16,
+    }, {
+      backgroundColor: undefined
+    })
+
+    const saveBtn = new UIButton(this.scene, width - 160, 6, '💾 Save', {
+      onClick: () => {
+        this.scene.events.emit('hud:save');
+      }
+    }, {
       fontSize: 16,
       color: '#00ff00'
-    }).setInteractive();
-    saveBtn.on('pointerdown', () => {
-      console.log('saveBtn clicked');
-      this.scene.events.emit('hud:save');
-    });
-    saveBtn.on('pointerover', () => {
-      this.scene.input.manager.canvas.style.cursor = 'pointer';
-    });
+    }, {
+      backgroundColor: undefined
+    })
 
-    saveBtn.on('pointerout', () => {
-      this.scene.input.manager.canvas.style.cursor = 'default';
-    });
-
-    const playBtn = scene.add.text(width - 80, 6, '▶ Play', {
+    const playBtn = new UIButton(this.scene, width - 80, 6, '▶ Play', {
+      onClick: () => {
+        this.scene.events.emit('hud:play');
+      }
+    }, {
       fontSize: 16,
       color: '#00ccff'
-    }).setInteractive();
-    playBtn.on('pointerdown', () => {
-      console.log('playBtn clicked');
-      this.scene.events.emit('hud:play');
-    });
-    playBtn.on('pointerover', () => {
-      this.scene.input.manager.canvas.style.cursor = 'pointer';
-    });
+    }, {
+      backgroundColor: undefined
+    })
 
-    playBtn.on('pointerout', () => {
-      this.scene.input.manager.canvas.style.cursor = 'default';
-    });
 
     this.createTilePalette();
     this.createToolPalette();
 
-    this.add([header, title, saveBtn, playBtn]);
+    this.add([header, title, saveBtn, playBtn, backBtn]);
   }
 
   createTilePalette() {

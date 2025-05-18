@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import LEVELS from '../levels';
 import LevelProgressStore from '../store/levelProgress';
+import UIButton from '../ui/Button';
 
 export class LevelSelect extends Phaser.Scene {
   constructor() {
@@ -21,27 +22,29 @@ export class LevelSelect extends Phaser.Scene {
 
     LEVELS.forEach((level, index) => {
       const completed = LevelProgressStore.isCompleted(level.id);
-      const label = `${level.name} ${completed ? '✅' : ''}`;
+      const unlocked = LevelProgressStore.isUnlocked(level.id)
+      const emoji = completed ? '✅' : unlocked ? '🔓' : '🔒'
+      const label = `${level.name} ${emoji}`;
 
-      const levelButton = this.add.text(width / 2, startY + index * padding, label, {
+      const levelButton = new UIButton(this, width / 2, startY + index * padding, label, {
+        onClick: () => this.scene.start('Game', { levelId: level.id}),
+        disabled: !unlocked
+      }, {
         fontSize: '20px',
         color: completed ? '#00cc66' : '#ffffff',
         backgroundColor: '#444444',
         padding: { x: 12, y: 6 }
-      }).setOrigin(0.5).setInteractive();
+      }).setOrigin(0.5)
 
-      levelButton.on('pointerdown', () => {
-        this.scene.start('Game', { levelId: level.id });
-      });
+      this.add.existing(levelButton)
     });
 
-    const backBtn = this.add.text(width / 2, startY + LEVELS.length * padding + 30, '↩ Back to Menu', {
-      fontSize: '18px',
-      color: '#cccccc'
-    }).setOrigin(0.5).setInteractive();
+    const backBtn = new UIButton(this, width / 2, startY + LEVELS.length * padding + 30, '↩ Back to Menu', {
+      onClick: () => this.scene.start('MainMenu')
+    }, {
+      padding: { x: 12, y: 6 }
+    }).setOrigin(0.5);
 
-    backBtn.on('pointerdown', () => {
-      this.scene.start('MainMenu');
-    });
+    this.add.existing(backBtn);
   }
 }

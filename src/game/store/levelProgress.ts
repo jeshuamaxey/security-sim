@@ -1,4 +1,4 @@
-import { LevelConfig } from '../levels';
+import LEVELS, { LevelConfig } from '../levels';
 
 export type LevelScore = {
   suspiciousItemsPassed: number;
@@ -13,10 +13,12 @@ export type LevelProgressMap = {
 };
 
 class LevelProgressStore {
+  private levels: LevelConfig[]
   private key = 'levelProgress';
   private progress: LevelProgressMap = {};
 
-  constructor() {
+  constructor(levels: LevelConfig[]) {
+    this.levels = levels
     this.load();
   }
 
@@ -40,6 +42,14 @@ class LevelProgressStore {
     return this.progress[levelId]?.completed ?? false;
   }
 
+  isUnlocked(levelId: string): boolean {
+    const index = this.levels.findIndex(level => level.id === levelId);
+    if(index === 0) return true;
+
+    const prevLevel = this.levels[index - 1]
+    return this.isCompleted(prevLevel.id)
+  }
+
   getScore(levelId: string): LevelScore | null {
     return this.progress[levelId] ?? null;
   }
@@ -53,9 +63,9 @@ class LevelProgressStore {
     localStorage.removeItem(this.key);
   }
 
-  getNextIncompleteLevel(levels: LevelConfig[]): LevelConfig | null {
-    return levels.find(level => !this.isCompleted(level.id)) ?? null;
+  getNextIncompleteLevel(): LevelConfig | null {
+    return this.levels.find(level => !this.isCompleted(level.id)) ?? null;
   }
 }
 
-export default new LevelProgressStore();
+export default new LevelProgressStore(LEVELS);
