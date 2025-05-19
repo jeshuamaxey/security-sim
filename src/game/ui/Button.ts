@@ -1,3 +1,5 @@
+import { COLORS } from "../colors"
+
 type ButtonConfig = {
   onClick: () => void
   disabled?: boolean
@@ -10,7 +12,7 @@ const defaultStyle = {
 }
 
 const defaultHoverStyle = {
-  backgroundColor: '#cccccc'
+  backgroundColor: COLORS.lightGray
 }
 
 export default class UIButton extends Phaser.GameObjects.Text {

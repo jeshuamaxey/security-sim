@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import LEVELS from '../levels';
 import LevelProgressStore from '../store/levelProgress';
 import UIButton from '../ui/Button';
+import { COLORS } from '../colors';
 
 export class LevelSelect extends Phaser.Scene {
   constructor() {
@@ -31,8 +32,8 @@ export class LevelSelect extends Phaser.Scene {
         disabled: !unlocked
       }, {
         fontSize: '20px',
-        color: completed ? '#00cc66' : '#ffffff',
-        backgroundColor: '#444444',
+        color: completed ? COLORS.green : COLORS.white,
+        backgroundColor: COLORS.darkGray,
         padding: { x: 12, y: 6 }
       }).setOrigin(0.5)
 

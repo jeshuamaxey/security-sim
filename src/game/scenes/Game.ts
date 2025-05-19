@@ -12,6 +12,7 @@ import MapStore from '../store/map';
 import LevelProgressStore, { LevelScore } from '../store/levelProgress';
 import { LevelConfig } from '../levels';
 import UIButton from '../ui/Button';
+import { COLORS } from '../colors';
 
 const DEBUG_TILES = false;
 export class Game extends BaseScene
@@ -180,12 +181,12 @@ export class Game extends BaseScene
     
       const title = this.add.text(this.scale.width / 2, 100, level.name, {
         fontSize: '32px',
-        color: '#ffffff'
+        color: COLORS.white
       }).setOrigin(0.5);
     
       const description = this.add.text(this.scale.width / 2, 160, level.description || '', {
         fontSize: '18px',
-        color: '#dddddd',
+        color: COLORS.lightGray,
         wordWrap: { width: this.scale.width * 0.8 }
       }).setOrigin(0.5);
     
@@ -196,9 +197,9 @@ export class Game extends BaseScene
         }
       }, {
         fontSize: '24px',
-        backgroundColor: '#00cc66',
+        backgroundColor: COLORS.green,
         padding: { x: 12, y: 6 },
-        color: '#ffffff'
+        color: COLORS.white
       }).setOrigin(0.5)
     
       modal.add([bg, title, description, playButton]);
@@ -312,7 +313,7 @@ export class Game extends BaseScene
     
       const stats = this.add.text(this.scale.width / 2, 220, summary, {
         fontSize: '18px',
-        color: '#dddddd',
+        color: COLORS.lightGray,
         align: 'center'
       }).setOrigin(0.5);
 
@@ -401,22 +402,6 @@ export class Game extends BaseScene
       this.passengers.add(newPassenger);
 
       return newPassenger;
-    }
-
-    private renderPassengerList() {
-      if(!this.passengers) {
-        return;
-      }
-
-      const passengers = this.passengers.getChildren() as Passenger[];
-      const passengerList = passengers.map((passenger, index) => {
-        // check emoji or walking emoji
-        const emoji = (passenger as Passenger).bag ? '💼' : '🚫';
-        const impeded = (passenger as Passenger).impeded ? '🚫' : '';
-        return `${index + 1}. ${passenger.name} ${passenger.currentTaskIndex} ${emoji} ${impeded} (${passenger.currentTask?.name}) ${(passenger as Passenger).currentStepInPath}`;
-      }).join('\n');
-
-      this.passengerListText.setText(`Passengers: ${passengers.length}\n${passengerList}`);
     }
 
     private updateScore() {
