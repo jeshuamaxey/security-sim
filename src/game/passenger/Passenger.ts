@@ -4,11 +4,11 @@ import { Pausable } from '../interfaces/Pausable';
 
 import { spriteAnimations } from '../sprite-animations';
 import { PathFinder } from "../utils/tilemaps";
-import { TaskDestination } from "../tasks/tasks";
+import { TaskDestination, TaskDestinationMap } from "../tasks/tasks";
 import { GAME_CONFIG } from "../config";
 import Bag from "../bag/Bag";
 import { Game } from "../scenes/Game";
-
+import determinePassengerTasks from "./determine-passenger-tasks";
 export type PassengerTexture = 'adam' | 'alex' | 'bob' | 'amelia';
 
 type Vector2Like = Phaser.Types.Math.Vector2Like
@@ -20,11 +20,12 @@ type PassengerDebugConfig = {
   showDestinations?: boolean;
 }
 
-type PassengerConfig = {
+export type PassengerConfig = {
   name: PassengerTexture;
   pathFinder: PathFinder;
   bag?: Bag;
   debug?: PassengerDebugConfig;
+  destinations: TaskDestinationMap;
   tasks: PassengerTask[];
   onArrivedAtAirside: () => void;
 }
@@ -59,12 +60,13 @@ class Passenger extends Phaser.Physics.Arcade.Sprite implements Pausable {
   public currentStepInPath: number;
   private checkArrivedAtWaypoint: Phaser.Time.TimerEvent | null = null;
 
+  public activityLog: {activity: string, timestamp: number}[] = [];
+
   public lastPassengerCollidedWith?: Passenger;
   private lastCollisionTimeout?: Phaser.Time.TimerEvent;
 
   private paused: boolean = false;
   private awaitingWaypointCheck: boolean = false;
-
 
   public bag?: Bag;
 
@@ -134,8 +136,9 @@ class Passenger extends Phaser.Physics.Arcade.Sprite implements Pausable {
     this.currentStepInPath = 0;
     
     this.lastCollisionTimeout = undefined;
-    
-    this.tasks = [...config.tasks];
+
+    this.tasks = determinePassengerTasks(this, this.pathFinder, config);
+
     this._currentTaskIndex = 0;
     
     
@@ -672,6 +675,10 @@ class Passenger extends Phaser.Physics.Arcade.Sprite implements Pausable {
   }
 
   public moveToNextTask() {
+    this.activityLog.push({
+      activity: `task complete / type:${this.currentTask?.type} / name:${this.currentTask?.name}`,
+      timestamp: Date.now()
+    });
     this.pLog('moveToNextTask()', 'log');
     this._currentTaskIndex++;
   }

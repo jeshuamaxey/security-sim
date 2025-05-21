@@ -25,7 +25,16 @@ export class Game extends BaseScene
     processedPassengerCount: number;
     suspiciousItemsPassed: number;
     spawnTimer: Phaser.Time.TimerEvent;
-
+    kpis: {
+      bagScanSkipped: {
+        max: number;
+        current: number;
+      },
+      bodyScanSkipped: {
+        max: number;
+        current: number;
+      }
+    };
     levelStartTime: number;
     levelStarted: boolean;
     levelCompleted: boolean;
@@ -213,6 +222,16 @@ export class Game extends BaseScene
       this.spawnedPassengerCount = 0;
       this.processedPassengerCount = 0;
       this.suspiciousItemsPassed = 0;
+      this.kpis = {
+        bagScanSkipped: {
+          max: level.kpis.find(kpi => kpi.key === 'bagScanSkipped')?.max ?? -1,
+          current: 0
+        },
+        bodyScanSkipped: {
+          max: level.kpis.find(kpi => kpi.key === 'bodyScanSkipped')?.max ?? -1,
+          current: 0
+        }
+      };
     
       const spawnInterval = 1000 * level.spawnRate;
     
@@ -280,20 +299,35 @@ export class Game extends BaseScene
     }
     
     completeLevel() {
-      this.levelCompleted = true;
+      this.endGame();
       const timeTaken = this.getElapsedLevelTime();
-    
+
       const score = {
-        suspiciousItemsPassed: this.suspiciousItemsPassed,
-        passengersProcessed: this.processedPassengerCount,
-        timeTaken,
         completed: true,
-        passed: this.suspiciousItemsPassed <= (this.currentLevel.kpis.find(kpi => kpi.key === 'suspiciousItemsPassed')?.max ?? 0)
-      };
-    
+        timeTaken,
+
+        passengersProcessed: this.processedPassengerCount,
+        bagScanSkipped: this.kpis.bagScanSkipped.current,
+        bodyScanSkipped: this.kpis.bodyScanSkipped.current,
+      };  
       LevelProgressStore.markLevelComplete(this.currentLevel.id, score);
     
       this.showLevelCompleteModal(score);
+    }
+
+    gameOver() {
+      this.endGame();
+      const timeTaken = this.getElapsedLevelTime();
+
+
+      this.showLevelCompleteModal({
+        completed: false,
+        timeTaken,
+
+        passengersProcessed: this.processedPassengerCount,
+        bagScanSkipped: this.kpis.bagScanSkipped.current,
+        bodyScanSkipped: this.kpis.bodyScanSkipped.current,
+      });
     }
 
     showLevelCompleteModal(score: LevelScore) {
@@ -303,8 +337,8 @@ export class Game extends BaseScene
         .setOrigin(0)
         .setInteractive();
     
-      const resultText = score.passed ? '✅ Level Passed' : '❌ Level Failed';
-      const summary = `Suspicious items: ${score.suspiciousItemsPassed}\nProcessed: ${score.passengersProcessed}\nTime: ${Math.round(score.timeTaken)}s`;
+      const resultText = score.completed ? '✅ Level Passed' : '❌ Level Failed';
+      const summary = `Bag Scan Skipped: ${score.bagScanSkipped}\nBody Scan Skipped: ${score.bodyScanSkipped}\nProcessed: ${score.passengersProcessed}\nTime: ${Math.round(score.timeTaken)}s`;
     
       const title = this.add.text(this.scale.width / 2, 150, resultText, {
         fontSize: '32px',
@@ -372,8 +406,9 @@ export class Game extends BaseScene
           debugLog: true,
           showDestinations: true
         } : undefined,
+        destinations: this.destinations,
         onArrivedAtAirside: () => {
-          this.updateScore();
+          this.updateScore(newPassenger);
         }
       });
 
@@ -404,8 +439,31 @@ export class Game extends BaseScene
       return newPassenger;
     }
 
-    private updateScore() {
+    private updateScore(passenger: Passenger) {
       this.processedPassengerCount++;
+
+      const skippedBagScan = !passenger.activityLog.find(activity => activity.activity === 'task complete / type:action / name:unload bag');
+      const skippedBodyScan = !passenger.activityLog.find(activity => activity.activity === 'task complete / type:action / name:scan body');
+      
+      if(skippedBagScan) {
+        this.kpis.bagScanSkipped.current++;
+      }
+
+      if(skippedBodyScan) {
+        this.kpis.bodyScanSkipped.current++;
+      }
+
+      console.log(this.kpis.bagScanSkipped.current, this.kpis.bagScanSkipped.max);
+      console.log(this.kpis.bodyScanSkipped.current, this.kpis.bodyScanSkipped.max);
+      console.log(passenger.activityLog);
+
+      if(this.kpis.bagScanSkipped.current >= this.kpis.bagScanSkipped.max) {
+        this.gameOver();
+      }
+
+      if(this.kpis.bodyScanSkipped.current >= this.kpis.bodyScanSkipped.max) {
+        this.gameOver();
+      }
     }
 
     update (time: number, delta: number)
@@ -423,5 +481,12 @@ export class Game extends BaseScene
       }
 
       this.hud.updateHUD(this.getElapsedLevelTime(), this.processedPassengerCount, this.currentLevel.passengerCount);
+    }
+
+    private endGame() {
+      this.passengers.getChildren().forEach(p => (p as Passenger).pause());
+
+      this.spawnTimer.remove();
+      this.levelCompleted = true;
     }
 }

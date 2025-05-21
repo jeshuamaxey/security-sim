@@ -1,5 +1,5 @@
 import { AStarFinder } from "astar-typescript";
-import { TaskDestination, TaskDestinationMap } from "../tasks/tasks";
+import { TaskDestination, TaskDestinationMap, TileCoordinates } from "../tasks/tasks";
 import { GAME_CONFIG } from "../config";
 import BaseScene from "../scenes/BaseScene";
 
@@ -46,7 +46,7 @@ export class PathFinder {
    * @param end - The ending point in world coordinates
    * @returns The path between the two points in tile coordinates
    */
-  findPathInTileCoords(start: TaskDestination, end: TaskDestination) {
+  findPathInTileCoords(start: TileCoordinates, end: TileCoordinates) {
     const isWithinBounds = (x: number, y: number) =>
       x >= 0 && y >= 0 && x < this.gridWidth && y < this.gridHeight;
 

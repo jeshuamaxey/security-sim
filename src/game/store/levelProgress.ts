@@ -1,11 +1,11 @@
 import LEVELS, { LevelConfig } from '../levels';
 
 export type LevelScore = {
-  suspiciousItemsPassed: number;
+  bagScanSkipped: number;
+  bodyScanSkipped: number;
   passengersProcessed: number;
   timeTaken: number; // in seconds
-  completed: boolean;
-  passed: boolean;
+  completed: boolean
 };
 
 export type LevelProgressMap = {

@@ -6,24 +6,29 @@ import moveTo from "./move-to";
 
 export type TaskDestinationCode = 'bag_dropoff_passenger_bay' | 'body_scanner' | 'bag_pickup_passenger_bay'  | 'gate';
 
-export type TaskDestination = {
-  /**
-   * The x coordinate of the destination in world (pixel) coordinates
-   */
-  x: number;
+export type TileCoordinates = {
   /**
    * The x coordinate of the destination in tile coordinates
    */
   tileX: number;
   /**
-   * The y coordinate of the destination in world (pixel) coordinates
-   */
-  y: number;
-  /**
    * The y coordinate of the destination in tile coordinates
    */
   tileY: number;
 }
+
+export type WorldCoordinates = {
+  /**
+   * The x coordinate of the destination in world (pixel) coordinates
+   */
+  x: number;
+  /**
+   * The y coordinate of the destination in world (pixel) coordinates
+   */
+  y: number;
+}
+
+export type TaskDestination = TileCoordinates & WorldCoordinates;
 
 export type TaskDestinationMap = {
   [key in TaskDestinationCode]: TaskDestination;

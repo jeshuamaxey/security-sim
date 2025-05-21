@@ -1,5 +1,5 @@
 export type KPIConstraint = {
-  key: 'suspiciousItemsPassed' | 'passengersProcessed' | 'timeTaken';
+  key: 'bagScanSkipped' | 'bodyScanSkipped';
   max?: number;
   min?: number;
 };
@@ -49,7 +49,11 @@ const LEVELS: LevelConfig[] = [
     isTutorial: true,
     kpis: [
       {
-        key: 'suspiciousItemsPassed',
+        key: 'bagScanSkipped',
+        max: 1
+      },
+      {
+        key: 'bodyScanSkipped',
         max: 1
       }
     ]
@@ -64,8 +68,12 @@ const LEVELS: LevelConfig[] = [
     endDate: '2025-01-19',
     kpis: [
       {
-        key: 'suspiciousItemsPassed',
-        max: 3
+        key: 'bagScanSkipped',
+        max: 1
+      },
+      {
+        key: 'bodyScanSkipped',
+        max: 1
       }
     ]
   },
@@ -79,12 +87,12 @@ const LEVELS: LevelConfig[] = [
     endDate: '2025-01-26',
     kpis: [
       {
-        key: 'suspiciousItemsPassed',
-        max: 2
+        key: 'bagScanSkipped',
+        max: 1
       },
       {
-        key: 'passengersProcessed',
-        min: 60
+        key: 'bodyScanSkipped',
+        max: 1
       }
     ]
   }
