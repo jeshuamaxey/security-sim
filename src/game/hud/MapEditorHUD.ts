@@ -1,14 +1,21 @@
+import { COLORS, COLORS_0x } from "../colors";
 import { GAME_CONFIG } from "../config";
 import UIButton from "../ui/Button";
 
 type Tool = {
   name: string;
   emoji: string;
+  backgroundColor: string
 }
 
 const tools: Tool[] = [{
   name: 'delete',
-  emoji: '🗑'
+  emoji: '🗑',
+  backgroundColor: COLORS.red
+}, {
+  name: 'rotate',
+  emoji: '🔄',
+  backgroundColor: COLORS.lightGray
 }]
 export default class MapEditorHUD extends Phaser.GameObjects.Container {
   scene: Phaser.Scene;
@@ -73,7 +80,24 @@ export default class MapEditorHUD extends Phaser.GameObjects.Container {
   }
 
   createTilePalette() {
-    const tileIndices = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27];
+    const tileIndices = [
+      // barriers
+      5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+      15, // body scanner
+      16, // body scanner
+      17, // bag drop
+      18, // bag pickup
+      19, // bag convey 
+      21, // gate
+      22, // bag drop passenger bag
+      23, // bag pickup bassenger bag
+      // 24, // convey right
+      25, // convey up
+      // 26, // convey left
+      // 27, // convey down
+      28, // convey turn right
+      29, // convey turn left
+    ];
     this.tilePalette = this.scene.add.group();
 
     tileIndices.forEach((index, i) => {
@@ -123,17 +147,25 @@ export default class MapEditorHUD extends Phaser.GameObjects.Container {
     // this.toolPalette = this.scene.add.group();
 
     const height = this.scene.scale.height;
+    const baseY = (Math.round(this.tilePalette.children.size/2)+2) * GAME_CONFIG.TILE_SIZE
 
-    const x = GAME_CONFIG.TILE_SIZE
-    const y = height - (Math.round(this.tilePalette.children.size/2) * GAME_CONFIG.TILE_SIZE) + GAME_CONFIG.TILE_SIZE
-
-    console.log({ x, y})
-
+    const selectedToolBg = this.scene.add.rectangle(GAME_CONFIG.TILE_SIZE-1, baseY-1, GAME_CONFIG.TILE_SIZE+2, GAME_CONFIG.TILE_SIZE+2, COLORS_0x.midGreen, 0.6)
+    
     tools.forEach((tool, i) => {
-      const btn = this.scene.add.text(x, y, `${tool.emoji}`, {
+      const width = GAME_CONFIG.TILE_SIZE;
+      const height = GAME_CONFIG.TILE_SIZE;
+      const tilesPerRow = 2;
+
+      const rowN = 1 + Math.floor(i / tilesPerRow);
+      const colN = 1 + i % tilesPerRow;
+
+      const x = colN * width;
+      const y = GAME_CONFIG.STYLE.HEADER_HEIGHT + rowN * height;
+
+      const btn = this.scene.add.text(x, baseY+y, `${tool.emoji}`, {
         fontSize: 14,
         color: '#ffffff',
-        backgroundColor: '#dd2200',
+        backgroundColor: tool.backgroundColor,
         fixedHeight: GAME_CONFIG.TILE_SIZE,
         fixedWidth: GAME_CONFIG.TILE_SIZE,
         padding: { x: 8, y: 10 }
@@ -143,7 +175,7 @@ export default class MapEditorHUD extends Phaser.GameObjects.Container {
       .setOrigin(0.5,0.5)
 
       btn.on('pointerdown', () => {
-        btn.setBackgroundColor(this.selectedToolIndex === 0 ? '#ff5555' : '#cc0000');
+        // btn.setBackgroundColor(this.selectedToolIndex === 0 ? '#ff5555' : );
         this.scene.events.emit(`hud:${tool.name}-tool-selected`)
       });
 

@@ -24,13 +24,13 @@ const determinePassengerTasks = (passenger: Passenger, pathFinder: PathFinder, p
   const directPath = pathFinder.findPathInTileCoords(startTile as TileCoordinates, endTile as TileCoordinates);
   const createMoveToTask = moveTo(pConfig.destinations);
 
-  if (directPath.length > 0) {
-    passenger.pLog(`Direct path to gate found for ${passenger.name}`, 'log');
-    tasks.push(createMoveToTask('gate'));
-  } else {
+  // if (directPath.length > 0) {
+  //   passenger.pLog(`Direct path to gate found for ${passenger.name}`, 'log');
+  //   tasks.push(createMoveToTask('gate'));
+  // } else {
     passenger.pLog(`No direct path to gate for ${passenger.name} — falling back to full security path.`, 'warn');
     tasks.push(...pConfig.tasks);
-  }
+  // }
 
   return tasks;
 }

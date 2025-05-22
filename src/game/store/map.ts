@@ -1,3 +1,35 @@
+export type StrippedTile = {
+  index: number
+
+  baseHeight: number
+  baseWidth: number
+  width: number
+  height: number
+
+  bottom: number
+  right: number
+
+  collideDown: boolean
+  collideLeft: boolean
+  collideRight: boolean
+  collideUp: boolean
+
+  faceBottom: boolean
+  faceLeft: boolean
+  faceRight: boolean
+  faceTop: boolean
+
+  pixelX: number
+  pixelY: number
+  properties: any
+  rotation: number
+  tint: number
+  tintFill: boolean
+
+  x: number
+  y: number
+}
+
 // MapStore.ts
 type SavedTileMapData = {
   name: string;
@@ -5,6 +37,7 @@ type SavedTileMapData = {
   height: number;
   tileSize: number;
   layerIndices: number[][];
+  layer: StrippedTile[][]
 };
 
 class MapStore {

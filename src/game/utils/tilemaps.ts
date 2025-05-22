@@ -98,7 +98,6 @@ type TileCacheObject = {
 }
 
 export type TilePropertiesMap = { [key: number]: { [key: string]: string } };
-
 export class TilemapUtils {
   private scene: BaseScene;
   private gridWidth: number;
@@ -203,7 +202,10 @@ export class TilemapUtils {
 
       if(this._tileProperties[tile.index]) {
         const props = this._tileProperties[tile.index];
-        tile.properties = {...props};
+        tile.properties = {
+          ...tile.properties,
+          ...props
+        };
       }
       return tile;
     });
@@ -273,6 +275,15 @@ export class TilemapUtils {
     };
   
     return destinations;
+  }
+
+  findTileByDestinationKey(tilemapLayer: Phaser.Tilemaps.TilemapLayer, destinationKey: string) {
+    if(!this._tileProperties) {
+      this.loadTileProperties();
+    }
+
+    const tiles = tilemapLayer.getTilesWithin(0, 0, this.gridWidth, this.gridHeight);
+    return tiles.filter((tile: any) => tile.properties.destinationKey === destinationKey);
   }
 
   findClosestTile(

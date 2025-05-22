@@ -1,5 +1,5 @@
 export const PASSENGER = {
-  SPEED: 100,
+  SPEED: 80,
   HEIGHT: 32,
   WIDTH: 32,
 
@@ -11,10 +11,6 @@ export const PASSENGER = {
   WAYPOINT_TOLERANCE: 10,
 
   WAIT_AFTER_COLLISION_MS: 1000
-}
-
-export const BAG = {
-  CONVEYOR_SPEED: 100,
 }
 
 export const DESTINATION_KEYS = {

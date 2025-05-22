@@ -1,4 +1,6 @@
-import { BAG } from "../passenger/constants";
+import Conveyor from "../conveyor/Conveyor";
+import { GameContainerObject } from "../interfaces/GameContainerObject";
+import { Pausable } from "../interfaces/Pausable";
 import { Game } from "../scenes/Game";
 
 type BagConfig = {
@@ -12,13 +14,15 @@ type BagConfig = {
   }
 }
 
-class Bag extends Phaser.Physics.Arcade.Sprite {
+class Bag extends Phaser.Physics.Arcade.Sprite implements Pausable, GameContainerObject {
   public id: string;
 
   public currentTile: Phaser.Tilemaps.Tile;
 
   public onPerson: boolean;
+
   public onConveyor: boolean;
+  public currentConveyor: Conveyor | undefined;
   public currentConveyorDirection: 'left' | 'right' | 'up' | 'down' | null;
   
   // scanner
@@ -41,22 +45,27 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
 
   private game: Game;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, texture: string, config: BagConfig) {
+  private paused: boolean;
+  gameContainer: Phaser.GameObjects.Container;
+
+  constructor(scene: Game, x: number, y: number, texture: string, config: BagConfig) {
     super(scene, x, y, texture);
+
+    this.gameContainer = scene.gameContainer;
 
     this.id = `bag-${Math.random().toString(36).substring(2, 15)}`;
     this.game = scene as Game;
-
+    
     // physics body
     scene.add.existing(this);
     scene.physics.world.enable(this);
-
+    
     this.inScanner = false;
     this.scanInProgress = false;
     this.scanComplete = false;
-
+    
     this.currentConveyorDirection = null;
-
+    
     if(config.onPerson) {
       this.onPerson = true;
       this.onConveyor = false;
@@ -69,12 +78,12 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
     }
     
     this.is_flagged = false;
-
+    
     this.contents = {
       has_electronics: false,
       has_liquids: false,
       has_suspicious_item: false,
-
+      
       ...config.contents
     };
     
@@ -84,6 +93,10 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(time: number, delta: number) {
+    if(this.paused) {
+      return;
+    }
+
     super.update(time, delta);
 
     if(!this.game.collidablesLayer) {
@@ -92,31 +105,28 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    this.currentTile = this.game.collidablesLayer.getTileAtWorldXY(this.x, this.y);
+    this.currentTile = this.game.collidablesLayer.getTileAtWorldXY(this.worldPosition.x, this.worldPosition.y);
 
     if(!this.currentTile && !this.onPerson) {
       console.warn('no tile found for bag');
       this.setVelocity(0, 0);
       return;
     }
+    
+    this.currentConveyor = this.currentTile ? this.game.conveyorMap.get(`${this.currentTile.x},${this.currentTile.y}`) : undefined;
 
-    this.onConveyor = this.currentTile?.properties.destinationKey === 'bag_conveyor';
+    this.onConveyor = !!this.currentConveyor;
     this.inScanner = this.currentTile?.properties.destinationKey === 'bag_scanner';
     this.onPickup = this.currentTile?.properties.destinationKey === 'bag_pickup';
 
-    if(this.onConveyor) {
-      if(this.changeCourse) {
-        const direction = this.currentTile?.properties.direction;
-        
-        if(!direction) {
-          console.warn('no direction found for bag');
-          this.setVelocity(0, 0);
-          return;
+    if(this.onConveyor && this.currentConveyor) {
+      if (this.currentConveyor.shouldPropel(this)) {
+
+        if (this.currentConveyorDirection !== this.currentConveyor.direction) {
+          this.propel(this.currentConveyor.direction);
         }
-        
-        if(direction !== this.currentConveyorDirection) {
-          this.propel(direction);
-        }
+      } else {
+        // console.log('BAG:: not shouldPropel', this.currentConveyor.direction);
       }
     }
 
@@ -145,15 +155,16 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
 
   propel(direction: 'left' | 'right' | 'up' | 'down') {
     this.currentConveyorDirection = direction;
+    const speed = this.currentConveyor?.speed || 0;
 
     if(direction === 'right') {
-      this.setVelocity(BAG.CONVEYOR_SPEED, 0);
+      this.setVelocity(speed, 0);
     } else if(direction === 'left') {
-      this.setVelocity(-BAG.CONVEYOR_SPEED, 0);
+      this.setVelocity(-speed, 0);
     } else if(direction === 'up') {
-      this.setVelocity(0, -BAG.CONVEYOR_SPEED);
+      this.setVelocity(0, -speed);
     } else if(direction === 'down') {
-      this.setVelocity(0, BAG.CONVEYOR_SPEED);
+      this.setVelocity(0, speed);
     }
   }
 
@@ -166,8 +177,18 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
    * at which point the current conveyor direction is no longer valid and the bag should change course
    */
   get changeCourse() {
+    console.warn('changeCourse is deprecated - should be implemented in Scanner.ts class');
     const atOrPastTileCentreLineX = this.x >= this.currentTile.pixelX + (this.currentTile.width / 2);
     const atOrPastTileCentreLineY = this.y < this.currentTile.pixelY + (this.currentTile.height / 2);
+
+    // console.log({
+    //   atOrPastTileCentreLineX,
+    //   atOrPastTileCentreLineY,
+    //   currentConveyorDirection: this.currentConveyorDirection,
+    //   currentTile: this.currentTile,
+    //   x: this.x,
+    //   y: this.y,
+    // })
     
     let changeCourse = false;
 
@@ -184,6 +205,20 @@ class Bag extends Phaser.Physics.Arcade.Sprite {
     }
 
     return changeCourse;
+  }
+
+  get worldPosition(): Phaser.Types.Math.Vector2Like {
+    return { x: this.getWorldTransformMatrix().tx, y: this.getWorldTransformMatrix().ty };
+  }
+
+  pause() {
+    this.paused = true;
+    this.anims.pause();
+  }
+
+  resume() {
+    this.paused = false;
+    this.anims.resume();
   }
 }
 

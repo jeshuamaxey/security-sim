@@ -1,6 +1,6 @@
 import { GAME_CONFIG } from "../config";
 import MapEditorHUD from '../hud/MapEditorHUD';
-import MapStore from "../store/map";
+import MapStore, { StrippedTile } from "../store/map";
 import BaseScene from "./BaseScene";
 
 export class MapEditor extends BaseScene {
@@ -12,6 +12,7 @@ export class MapEditor extends BaseScene {
 
   ghostTile: Phaser.GameObjects.Sprite;
   hoverEnabled: boolean = true;
+  toolMode: 'delete' | 'rotate' | 'placeTile' = 'placeTile'
 
   getTileAtPointer: (pointer: Phaser.Input.Pointer) => { tileX: number, tileY: number };
 
@@ -24,20 +25,34 @@ export class MapEditor extends BaseScene {
 
     this.createBaseLayout();
 
+    this.toolMode = 'placeTile'
+
     const hud = new MapEditorHUD(this);
     this.uiContainer.add(hud);
 
     this.events.on('hud:save', () => this.saveMap());
     this.events.on('hud:play', () => this.scene.start('Game'));
     this.events.on('hud:back', () => this.scene.start('MainMenu'));
+    
+    // tools
     this.events.on('hud:tile-selected', (index: number) => {
+      this.toolMode = 'placeTile'
       this.selectedTileIndex = index;
       this.ghostTile.setFrame(index);
       this.ghostTile.clearTint();
       this.ghostTile.setVisible(true);
-    });
+    })
     this.events.on('hud:delete-tool-selected', () => {
-      console.log('bing')
+      this.toolMode = 'delete'
+      console.log('hud:delete-tool-selected')
+      this.selectedTileIndex = -1;
+      this.ghostTile.setFrame(-1);
+      this.ghostTile.setTint(0xff0000, 0.9);
+      this.ghostTile.setVisible(false);
+    });
+    this.events.on('hud:rotate-tool-selected', () => {
+      this.toolMode = 'rotate'
+      console.log('hud:rotate-tool-selected')
       this.selectedTileIndex = -1;
       this.ghostTile.setFrame(-1);
       this.ghostTile.setTint(0xff0000, 0.9);
@@ -61,6 +76,9 @@ export class MapEditor extends BaseScene {
         row.forEach((tileIndex, x) => {
           if (tileIndex !== -1) {
             this.editableLayer?.putTileAt(tileIndex, x, y);
+            const tile = this.editableLayer.getTileAt(x, y)
+            tile.properties = mapStore.layer[y][x].properties
+            tile.rotation = mapStore.layer[y][x].rotation
           }
         });
       });
@@ -190,10 +208,50 @@ export class MapEditor extends BaseScene {
         y: pointer.y
       });
 
-      this.editableLayer.putTileAt(this.selectedTileIndex, tileX, tileY);
+      if(this.toolMode === 'delete') {
+        this.editableLayer.putTileAt(-1, tileX, tileY)
+      } else if(this.toolMode === 'rotate') {
+        const t = this.editableLayer.getTileAt(tileX, tileY)
+        const currentRotation = t.properties.rotation || 0
+        const newRotation = (currentRotation + Math.PI/2) % (2*Math.PI)
+
+        t.properties.rotation = newRotation
+        t.rotation = newRotation
+
+      } else if(this.toolMode === 'placeTile') {
+        this.editableLayer.putTileAt(this.selectedTileIndex, tileX, tileY);
+      }
     });
 
     // Optional: Add a small UI or hotkeys to change selectedTileIndex
+  }
+
+  stripTileData(tile: Phaser.Tilemaps.Tile): StrippedTile {
+    return {
+      index: tile.index,
+      baseHeight: tile.baseHeight,
+      baseWidth: tile.baseWidth,
+      width: tile.width,
+      height: tile.height,
+      bottom: tile.bottom,
+      right: tile.right,
+      collideDown: tile.collideDown,
+      collideLeft: tile.collideLeft,
+      collideRight: tile.collideRight,
+      collideUp: tile.collideUp,
+      faceBottom: tile.faceBottom,
+      faceLeft: tile.faceLeft,
+      faceRight: tile.faceRight,
+      faceTop: tile.faceTop,
+      pixelX: tile.pixelX,
+      pixelY: tile.pixelY,
+      properties: tile.properties,
+      rotation: tile.rotation,
+      tint: tile.tint,
+      tintFill: tile.tintFill,
+      x: tile.x,
+      y: tile.y,
+    }
   }
 
   saveMap(): void {
@@ -207,6 +265,12 @@ export class MapEditor extends BaseScene {
       row.map((tile: Phaser.Tilemaps.Tile) => tile.index)
     )
 
+    const layer = this.editableLayer.layer.data.map(row =>
+      row.map(this.stripTileData)
+    )
+
+    console.log({layer})
+
     if(!layerIndices) {
       console.error('No layer data found');
       return;
@@ -217,7 +281,8 @@ export class MapEditor extends BaseScene {
       width: GAME_CONFIG.MAP_WIDTH,
       height: GAME_CONFIG.MAP_HEIGHT,
       tileSize: GAME_CONFIG.TILE_SIZE,
-      layerIndices
+      layerIndices,
+      layer
     };
     
     MapStore.save(savedData);

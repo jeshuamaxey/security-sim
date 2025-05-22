@@ -13,6 +13,7 @@ import LevelProgressStore, { LevelScore } from '../store/levelProgress';
 import { LevelConfig } from '../levels';
 import UIButton from '../ui/Button';
 import { COLORS } from '../colors';
+import Conveyor from '../conveyor/Conveyor';
 
 const DEBUG_TILES = false;
 export class Game extends BaseScene
@@ -47,6 +48,9 @@ export class Game extends BaseScene
     bags: Phaser.GameObjects.Group;
     focusPassenger: Passenger | null;
 
+    conveyors: Phaser.GameObjects.Group;
+    conveyorMap: Map<string, Conveyor>;
+
     pathFinder: PathFinder;
 
     hud: GameHUD;
@@ -65,6 +69,7 @@ export class Game extends BaseScene
 
     debugVisible: boolean;
     debugElements: Phaser.GameObjects.Text[];
+    conveyorDebugGraphics: Phaser.GameObjects.Graphics;
 
     gameText: Phaser.GameObjects.Text;
     spawnButton: Phaser.GameObjects.Text;
@@ -97,6 +102,7 @@ export class Game extends BaseScene
       
       // LAYER CREATION
       this.createBaseLayout();
+      this.tilemapUtils.loadTileProperties();
 
       this.events.on('pause-game', () => this.pauseGame());
       this.events.on('resume-game', () => this.resumeGame());
@@ -134,10 +140,12 @@ export class Game extends BaseScene
           if (tileIndex !== -1) {
             const tile = this.collidablesLayer?.putTileAt(tileIndex, x, y);
 
-            const props = this.tilemapUtils.tileProperties?.[tileIndex];
+            const props1 = mapStore.layer[y][x];
 
-            if(tile && props) {
-              tile.properties = {...props};
+            const props2 = this.tilemapUtils.tileProperties?.[tileIndex];
+
+            if(tile && (props1 || props2)) {
+              tile.properties = {...props1, ...props2};
             }
           }
         });
@@ -176,6 +184,37 @@ export class Game extends BaseScene
         maxSize: 100,
         runChildUpdate: true
       });
+
+      this.conveyors = this.add.group({
+        classType: Conveyor,
+        maxSize: 100,
+        runChildUpdate: true
+      });
+
+      this.conveyorMap = new Map<string, Conveyor>();
+
+      const conveyors = this.tilemapUtils.findTileByDestinationKey(this.collidablesLayer, 'bag_conveyor');
+
+      this.conveyorDebugGraphics = this.add.graphics();
+
+      conveyors.forEach((tile: any) => {
+        const x = tile.getCenterX()
+        const y = tile.getCenterY()
+        const local = this.gameContainer.getLocalPoint(x, y);
+        tile.setVisible(false)
+        const conveyor = new Conveyor(this, local.x, local.y, tile.properties.direction, tile.properties.turn, tile.properties.rotation, false);
+        this.gameContainer.add(conveyor);
+        this.conveyors.add(conveyor);
+
+        const key = `${tile.x},${tile.y}`;
+        this.conveyorMap.set(key, conveyor);
+
+      });
+
+      // test conveyors
+      // const testConveyor = new Conveyor(this, 100, 100, 'up', 'left', 2*Math.PI/2);
+      // this.gameContainer.add(testConveyor);
+      // this.conveyors.add(testConveyor);
 
       this.hud = new GameHUD(this, this.uiContainer, this.passengers);
 
@@ -373,16 +412,17 @@ export class Game extends BaseScene
       
       const xPadding = 0;//passengerData.width / 2;
       const yPadding = passengerData.height / 2;
-      
-      // const spawnX = xPadding;
-      // const spawnY = SIZE.HEIGHT - yPadding;
 
       const tileSize = 32;
       const spawnX = Phaser.Math.Snap.Floor(this.gameCamera.worldView.left + xPadding, tileSize);
       const spawnY = Phaser.Math.Snap.Floor(this.gameCamera.worldView.bottom - yPadding, tileSize);
       const visualOffsetY = tileSize * (1 - PASSENGER.ORIGIN_Y);
 
-      const bag = new Bag(this, spawnX, spawnY - visualOffsetY, 'bag', {
+      const bagWorldX = spawnX;
+      const bagWorldY = spawnY - visualOffsetY;
+      const bagLocal = this.gameContainer.getLocalPoint(bagWorldX, bagWorldY);
+
+      const bag = new Bag(this, bagLocal.x, bagLocal.y, 'bag', {
         contents: {
           has_electronics: true,
           has_liquids: true,
@@ -393,6 +433,7 @@ export class Game extends BaseScene
 
       this.uiCamera.ignore(bag);
       
+      this.gameContainer.add(bag);
       this.bags.add(bag);
       
       const newPassenger = new Passenger(this, spawnX, spawnY, passengerData.sprite, {

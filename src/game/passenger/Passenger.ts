@@ -49,6 +49,8 @@ export type PassengerTask = {
   durationMs: number;
 })
 class Passenger extends Phaser.Physics.Arcade.Sprite implements Pausable {
+  private gameContainer: Phaser.GameObjects.Container;
+
   private direction: Direction;
   private speed: number;
   public body: Phaser.Physics.Arcade.Body;
@@ -81,9 +83,10 @@ class Passenger extends Phaser.Physics.Arcade.Sprite implements Pausable {
 
   private onArrivedAtAirside: () => void;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, texture: string, config: PassengerConfig) {
+  constructor(scene: Game, x: number, y: number, texture: string, config: PassengerConfig) {
     super(scene, x, y, texture);
 
+    this.gameContainer = scene.gameContainer;
     this.setScale(GAME_CONFIG.SCALE);
 
     scene.add.existing(this);
@@ -172,7 +175,8 @@ class Passenger extends Phaser.Physics.Arcade.Sprite implements Pausable {
 
     // if the passenger has a bag, move the bag with the passenger
     if(this.bag && this.bag.onPerson) {
-      this.bag.setPosition(this.x, this.y);
+      const local = this.gameContainer.getLocalPoint(this.x, this.y);
+      this.bag.setPosition(local.x, local.y);
     }
 
     if(this.debug?.showPathTraced) {

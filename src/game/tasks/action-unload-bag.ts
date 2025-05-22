@@ -48,7 +48,10 @@ const actionUnloadBag = (): PassengerTask => {
 
         passenger.bag.onConveyor = true;
         passenger.bag.onPerson = false;
-        passenger.bag.setPosition(conveyorTileX, conveyorTileY);
+
+        const local = scene.gameContainer.getLocalPoint(conveyorTileX, conveyorTileY);
+        passenger.bag.setPosition(local.x, local.y);
+
         passenger.pLog('unloaded bag');
         
 

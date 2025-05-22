@@ -36,6 +36,8 @@ export class Preloader extends Scene
         this.load.spritesheet('bob', 'spritesheets/Bob_16x16.png', { frameWidth: 16, frameHeight: 32,  });
         this.load.spritesheet('amelia', 'spritesheets/Amelia_16x16.png', { frameWidth: 16, frameHeight: 32,  });
 
+        this.load.spritesheet('conveyor', 'spritesheets/conveyors.png', { frameWidth: 32, frameHeight: 32  });
+
         this.load.tilemapTiledJSON(GAME_CONFIG.TILEMAP_KEY, GAME_CONFIG.TILEMAP_PATH);
         this.load.image(GAME_CONFIG.TILESET_IMAGE_KEY, GAME_CONFIG.TILESET_PATH);
         this.load.spritesheet(GAME_CONFIG.TILESET_SPRITESHEET_KEY, GAME_CONFIG.TILESET_PATH, { frameWidth: GAME_CONFIG.TILE_SIZE, frameHeight: GAME_CONFIG.TILE_SIZE });
